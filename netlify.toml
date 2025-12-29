@@ -1,13 +1,8 @@
 [build]
-  # Build command Netlify will run
   command = "yarn build"
-  # Directory to publish (Vite default)
   publish = "dist"
 
 [[redirects]]
-  # SPA fallback: always serve index.html so client-side routing works
   from = "/*"
   to = "/index.html"
   status = 200
-
-
