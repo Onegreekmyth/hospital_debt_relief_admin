@@ -14,7 +14,6 @@ export default function Page() {
       <Helmet>
         <title> {metadata.title}</title>
       </Helmet>
-
       <BlankView title="Page five" />
     </>
   );
