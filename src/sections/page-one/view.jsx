@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -17,50 +17,85 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
+import Divider from '@mui/material/Divider';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-
-// ----------------------------------------------------------------------
-
-const INITIAL_ROWS = [
-  { id: 1, name: 'John Doe', email: 'john@example.com', role: 'Admin' },
-  { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'Editor' },
-  { id: 3, name: 'Ali Khan', email: 'ali@example.com', role: 'Viewer' },
-  { id: 4, name: 'John Doe', email: 'john@example.com', role: 'Admin' },
-  { id: 5, name: 'Jane Smith', email: 'jane@example.com', role: 'Editor' },
-  { id: 6, name: 'Ali Khan', email: 'ali@example.com', role: 'Viewer' },
-  { id: 7, name: 'John Doe', email: 'john@example.com', role: 'Admin' },
-  { id: 8, name: 'Jane Smith', email: 'jane@example.com', role: 'Editor' },
-  { id: 9, name: 'Ali Khan', email: 'ali@example.com', role: 'Viewer' },
-  { id: 10, name: 'John Doe', email: 'john@example.com', role: 'Admin' },
-  { id: 11, name: 'Jane Smith', email: 'jane@example.com', role: 'Editor' },
-  { id: 12, name: 'Ali Khan', email: 'ali@example.com', role: 'Viewer' },
-  { id: 13, name: 'John Doe', email: 'john@example.com', role: 'Admin' },
-];
+import { Iconify } from 'src/components/iconify';
+import axios, { endpoints } from 'src/utils/axios';
 
 // ----------------------------------------------------------------------
 
 export function PageOneView() {
-  const [rows, setRows] = useState(INITIAL_ROWS);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [dialogMode, setDialogMode] = useState('view'); // 'view' | 'edit' | 'create'
+  const [dialogMode, setDialogMode] = useState('view');
   const [currentRow, setCurrentRow] = useState(null);
-  const [formValues, setFormValues] = useState({ name: '', email: '', role: '' });
+  const [formValues, setFormValues] = useState({ name: '', email: '', phone: '', isVerified: false });
+  const [eligibilityData, setEligibilityData] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
 
   const isViewMode = dialogMode === 'view';
-  const isEditMode = dialogMode === 'edit';
-  const isCreateMode = dialogMode === 'create';
+
+  // Fetch users from backend
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await axios.get(endpoints.users.list, {
+          params: {
+            page: page + 1,
+            limit: rowsPerPage,
+            search: searchQuery,
+          },
+        });
+
+        if (response.data.success) {
+          setRows(response.data.data);
+          setTotal(response.data.pagination.total);
+        }
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        setError(err.response?.data?.message || 'Failed to fetch users');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+      fetchUsers();
+    }, searchQuery ? 500 : 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [page, rowsPerPage, searchQuery]);
 
   const handleOpenDialog = (mode, row = null) => {
     setDialogMode(mode);
     setCurrentRow(row);
     if (row) {
-      setFormValues({ name: row.name, email: row.email, role: row.role });
+      setFormValues({
+        name: row.name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        isVerified: row.isVerified || false,
+      });
+      // Set eligibility data from the row
+      setEligibilityData(row.eligibilityRequests || []);
     } else {
-      setFormValues({ name: '', email: '', role: '' });
+      setFormValues({ name: '', email: '', phone: '', isVerified: false });
+      setEligibilityData([]);
     }
     setOpenDialog(true);
   };
@@ -71,36 +106,11 @@ export function PageOneView() {
   };
 
   const handleChangeField = (field) => (event) => {
+    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     setFormValues((prev) => ({
       ...prev,
-      [field]: event.target.value,
+      [field]: value,
     }));
-  };
-
-  const handleSave = () => {
-    if (!formValues.name || !formValues.email || !formValues.role) {
-      return;
-    }
-
-    if (isEditMode && currentRow) {
-      setRows((prev) =>
-        prev.map((row) =>
-          row.id === currentRow.id ? { ...row, ...formValues } : row
-        )
-      );
-    }
-
-    if (isCreateMode) {
-      const nextId = rows.length ? Math.max(...rows.map((row) => row.id)) + 1 : 1;
-      setRows((prev) => [...prev, { id: nextId, ...formValues }]);
-    }
-
-    handleCloseDialog();
-  };
-
-  const handleDelete = (rowId) => {
-    // Simple delete without extra confirmation dialog for now
-    setRows((prev) => prev.filter((row) => row.id !== rowId));
   };
 
   const handleChangeSearch = (event) => {
@@ -117,168 +127,285 @@ export function PageOneView() {
     setPage(0);
   };
 
-  const filteredRows = rows.filter((row) => {
-    const query = searchQuery.toLowerCase().trim();
-
-    if (!query) {
-      return true;
-    }
-
-    return (
-      row.name.toLowerCase().includes(query) ||
-      row.email.toLowerCase().includes(query) ||
-      row.role.toLowerCase().includes(query)
-    );
-  });
-
-  const paginatedRows = filteredRows.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   return (
     <DashboardContent maxWidth="xl">
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-        <Typography variant="h4">Page one - CRUD example</Typography>
+        <Typography variant="h4">Users</Typography>
 
-        <Stack direction="row" spacing={2} alignItems="center">
-          <TextField
-            size="small"
-            placeholder="Search by name, email or role"
-            value={searchQuery}
-            onChange={handleChangeSearch}
-          />
-
-          <Button
-            variant="contained"
-            size="small"
-            onClick={() => handleOpenDialog('create')}
-          >
-            Add row
-          </Button>
-        </Stack>
+        <TextField
+          size="small"
+          placeholder="Search by name or email"
+          value={searchQuery}
+          onChange={handleChangeSearch}
+          sx={{ minWidth: 300 }}
+        />
       </Stack>
 
-      <Card>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedRows.map((row) => (
-                <TableRow key={row.id} hover>
-                  <TableCell>{row.id}</TableCell>
-                  <TableCell>{row.name}</TableCell>
-                  <TableCell>{row.email}</TableCell>
-                  <TableCell>{row.role}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleOpenDialog('view', row)}
-                      >
-                        View
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleOpenDialog('edit', row)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="small"
-                        color="error"
-                        variant="outlined"
-                        onClick={() => handleDelete(row.id)}
-                      >
-                        Delete
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
-        <TablePagination
-          component="div"
-          count={filteredRows.length}
-          page={page}
-          onPageChange={handleChangePage}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[5, 10, 25]}
-        />
+      <Card>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Phone</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Eligibility Requests</TableCell>
+                    <TableCell>Created At</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No users found
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rows.map((row) => (
+                      <TableRow key={row._id} hover>
+                        <TableCell>{row.name || 'N/A'}</TableCell>
+                        <TableCell>{row.email || 'N/A'}</TableCell>
+                        <TableCell>{row.phone || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={row.isVerified ? 'Verified' : 'Unverified'}
+                            color={row.isVerified ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={row.eligibilityCount || 0}
+                            color={row.eligibilityCount > 0 ? 'primary' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>{formatDate(row.createdAt)}</TableCell>
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleOpenDialog('view', row)}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <TablePagination
+              component="div"
+              count={total}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+            />
+          </>
+        )}
       </Card>
 
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
         fullWidth
-        maxWidth="sm"
+        maxWidth="md"
       >
-        <DialogTitle>
-          {isViewMode && 'View record'}
-          {isEditMode && 'Edit record'}
-          {isCreateMode && 'Add record'}
-        </DialogTitle>
+        <DialogTitle>View User</DialogTitle>
 
         <DialogContent dividers>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-              gap: 2,
-              mt: 1,
-            }}
-          >
-            <TextField
-              label="Name"
-              size="small"
-              value={formValues.name}
-              onChange={handleChangeField('name')}
-              InputProps={{ readOnly: isViewMode }}
-              fullWidth
-            />
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              User Information
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
+              }}
+            >
+              <TextField
+                label="Name"
+                size="small"
+                value={formValues.name}
+                onChange={handleChangeField('name')}
+                InputProps={{ readOnly: isViewMode }}
+                fullWidth
+              />
 
-            <TextField
-              label="Email"
-              size="small"
-              type="email"
-              value={formValues.email}
-              onChange={handleChangeField('email')}
-              InputProps={{ readOnly: isViewMode }}
-              fullWidth
-            />
+              <TextField
+                label="Email"
+                size="small"
+                type="email"
+                value={formValues.email}
+                onChange={handleChangeField('email')}
+                InputProps={{ readOnly: isViewMode }}
+                fullWidth
+              />
 
-            <TextField
-              label="Role"
-              size="small"
-              value={formValues.role}
-              onChange={handleChangeField('role')}
-              InputProps={{ readOnly: isViewMode }}
-              fullWidth
-            />
+              <TextField
+                label="Phone"
+                size="small"
+                value={formValues.phone}
+                onChange={handleChangeField('phone')}
+                InputProps={{ readOnly: isViewMode }}
+                fullWidth
+              />
+
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Chip
+                  label={formValues.isVerified ? 'Verified' : 'Unverified'}
+                  color={formValues.isVerified ? 'success' : 'default'}
+                  size="small"
+                />
+              </Box>
+            </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Eligibility Requests ({eligibilityData.length})
+            </Typography>
+
+            {eligibilityData.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                No eligibility requests found for this user.
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {eligibilityData.map((eligibility, index) => (
+                  <Accordion key={eligibility._id || index}>
+                    <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
+                      <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
+                        <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                          {eligibility.hospitalName || 'Unknown Hospital'}
+                        </Typography>
+                        <Chip
+                          label={eligibility.eligible ? 'Eligible' : 'Not Eligible'}
+                          color={eligibility.eligible ? 'success' : 'default'}
+                          size="small"
+                        />
+                        <Chip
+                          label={eligibility.eligibilityType?.replace('_', ' ') || 'N/A'}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                          gap: 2,
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Hospital
+                          </Typography>
+                          <Typography variant="body2">{eligibility.hospitalName || 'N/A'}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Location
+                          </Typography>
+                          <Typography variant="body2">
+                            {eligibility.city || 'N/A'}, {eligibility.state || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Household Income
+                          </Typography>
+                          <Typography variant="body2">
+                            ${eligibility.householdIncome?.toLocaleString() || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Household Size
+                          </Typography>
+                          <Typography variant="body2">{eligibility.householdSize || 'N/A'}</Typography>
+                        </Box>
+                        {eligibility.billAmount && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Bill Amount
+                            </Typography>
+                            <Typography variant="body2">
+                              ${eligibility.billAmount.toLocaleString()}
+                            </Typography>
+                          </Box>
+                        )}
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            FPL Percentage
+                          </Typography>
+                          <Typography variant="body2">
+                            {eligibility.fplPercentage?.toFixed(1) || 'N/A'}%
+                          </Typography>
+                        </Box>
+                        {eligibility.estimatedDiscount > 0 && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Estimated Discount
+                            </Typography>
+                            <Typography variant="body2" color="success.main">
+                              ${eligibility.estimatedDiscount.toLocaleString()}
+                            </Typography>
+                          </Box>
+                        )}
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Request Date
+                          </Typography>
+                          <Typography variant="body2">
+                            {formatDate(eligibility.createdAt)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+              </Stack>
+            )}
           </Box>
         </DialogContent>
 
         <DialogActions>
           <Button onClick={handleCloseDialog}>Close</Button>
-          {(isEditMode || isCreateMode) && (
-            <Button variant="contained" onClick={handleSave}>
-              Save
-            </Button>
-          )}
         </DialogActions>
       </Dialog>
     </DashboardContent>

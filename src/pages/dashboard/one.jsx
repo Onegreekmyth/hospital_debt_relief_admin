@@ -6,7 +6,7 @@ import { PageOneView } from 'src/sections/page-one/view';
 
 // ----------------------------------------------------------------------
 
-const metadata = { title: `Page one | Dashboard - ${CONFIG.appName}` };
+const metadata = { title: `Users | Dashboard - ${CONFIG.appName}` };
 
 export default function Page() {
   return (
