@@ -30,16 +30,17 @@ const authJwt = {
         </GuestGuard>
       ),
     },
-    {
-      path: 'sign-up',
-      element: (
-        <GuestGuard>
-          <AuthSplitLayout>
-            <Jwt.SignUpPage />
-          </AuthSplitLayout>
-        </GuestGuard>
-      ),
-    },
+    // Temporarily hide sign-up route
+    // {
+    //   path: 'sign-up',
+    //   element: (
+    //     <GuestGuard>
+    //       <AuthSplitLayout>
+    //         <Jwt.SignUpPage />
+    //       </AuthSplitLayout>
+    //     </GuestGuard>
+    //   ),
+    // },
   ],
 };
 
