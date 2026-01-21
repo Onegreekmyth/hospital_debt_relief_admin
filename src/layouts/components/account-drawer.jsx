@@ -19,7 +19,6 @@ import { useAuthContext } from 'src/auth/hooks';
 import { AccountButton } from './account-button';
 import { SignOutButton } from './sign-out-button';
 
-// ----------------------------------------------------------------------
 
 export function AccountDrawer({ data = [], sx, ...other }) {
   const theme = useTheme();

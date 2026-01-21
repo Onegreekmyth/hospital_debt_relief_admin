@@ -24,6 +24,8 @@ import Divider from '@mui/material/Divider';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
+import Tooltip from '@mui/material/Tooltip';
+import Badge from '@mui/material/Badge';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
@@ -44,6 +46,7 @@ export function PageOneView() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
+  const [billFiles, setBillFiles] = useState({});
 
   const isViewMode = dialogMode === 'view';
 
@@ -136,6 +139,25 @@ export function PageOneView() {
     });
   };
 
+  const handleBillFileChange = (userId, type) => (event) => {
+    const file = event.target.files?.[0];
+    if (!file || file.type !== 'application/pdf') {
+      event.target.value = '';
+      return;
+    }
+
+    setBillFiles((prev) => ({
+      ...prev,
+      [userId]: {
+        ...(prev[userId] || {}),
+        [type]: file,
+      },
+    }));
+
+    // Allow re-selecting the same file if needed.
+    event.target.value = '';
+  };
+
   return (
     <DashboardContent maxWidth="xl">
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
@@ -186,7 +208,11 @@ export function PageOneView() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((row) => (
+                    rows.map((row) => {
+                      const hasBillInfo = Boolean(billFiles[row._id]?.billInfo);
+                      const hasBillUpload = Boolean(billFiles[row._id]?.billUpload);
+
+                      return (
                       <TableRow key={row._id} hover>
                         <TableCell>{row.name || 'N/A'}</TableCell>
                         <TableCell>{row.email || 'N/A'}</TableCell>
@@ -207,16 +233,61 @@ export function PageOneView() {
                         </TableCell>
                         <TableCell>{formatDate(row.createdAt)}</TableCell>
                         <TableCell align="right">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => handleOpenDialog('view', row)}
-                          >
-                            View
-                          </Button>
+                          <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleOpenDialog('view', row)}
+                            >
+                              View
+                            </Button>
+
+                            <Tooltip title="Add Bill Information">
+                              <Badge variant="dot" color="success" invisible={!hasBillInfo}>
+                                <Button
+                                  component="label"
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  sx={{ minWidth: 0, px: 1 }}
+                                  aria-label="Add Bill Information"
+                                >
+                                  <Iconify icon="solar:document-add-bold-duotone" />
+                                  <input
+                                    hidden
+                                    type="file"
+                                    accept="application/pdf"
+                                    onChange={handleBillFileChange(row._id, 'billInfo')}
+                                  />
+                                </Button>
+                              </Badge>
+                            </Tooltip>
+
+                            <Tooltip title="Upload bill">
+                              <Badge variant="dot" color="success" invisible={!hasBillUpload}>
+                                <Button
+                                  component="label"
+                                  size="small"
+                                  variant="outlined"
+                                  color="secondary"
+                                  sx={{ minWidth: 0, px: 1 }}
+                                  aria-label="Upload bill"
+                                >
+                                  <Iconify icon="solar:upload-bold-duotone" />
+                                  <input
+                                    hidden
+                                    type="file"
+                                    accept="application/pdf"
+                                    onChange={handleBillFileChange(row._id, 'billUpload')}
+                                  />
+                                </Button>
+                              </Badge>
+                            </Tooltip>
+                          </Stack>
                         </TableCell>
                       </TableRow>
-                    ))
+                    );
+                    })
                   )}
                 </TableBody>
               </Table>
