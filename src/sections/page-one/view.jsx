@@ -42,6 +42,7 @@ export function PageOneView() {
   const [currentRow, setCurrentRow] = useState(null);
   const [formValues, setFormValues] = useState({ name: '', email: '', phone: '', isVerified: false });
   const [eligibilityData, setEligibilityData] = useState([]);
+  const [billsData, setBillsData] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -94,11 +95,13 @@ export function PageOneView() {
         phone: row.phone || '',
         isVerified: row.isVerified || false,
       });
-      // Set eligibility data from the row
+      // Set eligibility data and bills from the row
       setEligibilityData(row.eligibilityRequests || []);
+      setBillsData(row.bills || []);
     } else {
       setFormValues({ name: '', email: '', phone: '', isVerified: false });
       setEligibilityData([]);
+      setBillsData([]);
     }
     setOpenDialog(true);
   };
@@ -194,6 +197,7 @@ export function PageOneView() {
                     <TableCell>Phone</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Eligibility Requests</TableCell>
+                    <TableCell>Bills</TableCell>
                     <TableCell>Created At</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -201,7 +205,7 @@ export function PageOneView() {
                 <TableBody>
                   {rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
                           No users found
                         </Typography>
@@ -228,6 +232,13 @@ export function PageOneView() {
                           <Chip
                             label={row.eligibilityCount || 0}
                             color={row.eligibilityCount > 0 ? 'primary' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={row.billCount || 0}
+                            color={row.billCount > 0 ? 'secondary' : 'default'}
                             size="small"
                           />
                         </TableCell>
@@ -466,6 +477,136 @@ export function PageOneView() {
                             {formatDate(eligibility.createdAt)}
                           </Typography>
                         </Box>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+              </Stack>
+            )}
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Bills ({billsData.length})
+            </Typography>
+
+            {billsData.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                No bills found for this user.
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {billsData.map((bill, index) => (
+                  <Accordion key={bill._id || index}>
+                    <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
+                      <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
+                        <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                          {bill.patientName || 'Unknown Patient'}
+                        </Typography>
+                        <Chip
+                          label={`$${bill.billAmount?.toLocaleString() || '0'}`}
+                          color="primary"
+                          size="small"
+                        />
+                        <Chip
+                          label={bill.status || 'pending'}
+                          color={
+                            bill.status === 'approved'
+                              ? 'success'
+                              : bill.status === 'rejected'
+                              ? 'error'
+                              : bill.status === 'submitted' || bill.status === 'processing'
+                              ? 'info'
+                              : 'default'
+                          }
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                          gap: 2,
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Patient Name
+                          </Typography>
+                          <Typography variant="body2">{bill.patientName || 'N/A'}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Bill Amount
+                          </Typography>
+                          <Typography variant="body2">
+                            ${bill.billAmount?.toLocaleString() || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Service Date
+                          </Typography>
+                          <Typography variant="body2">
+                            {bill.serviceDate ? formatDate(bill.serviceDate) : 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Status
+                          </Typography>
+                          <Typography variant="body2">{bill.status || 'N/A'}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Submitted At
+                          </Typography>
+                          <Typography variant="body2">
+                            {bill.submittedAt ? formatDate(bill.submittedAt) : formatDate(bill.createdAt)}
+                          </Typography>
+                        </Box>
+                        {bill.pdfUrl && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Bill PDF
+                            </Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              href={bill.pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                            >
+                              View PDF
+                            </Button>
+                          </Box>
+                        )}
+                        {bill.supportingDocuments && bill.supportingDocuments.length > 0 && (
+                          <Box sx={{ gridColumn: '1 / -1' }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                              Supporting Documents ({bill.supportingDocuments.length})
+                            </Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                              {bill.supportingDocuments.map((doc, docIndex) => (
+                                <Button
+                                  key={docIndex}
+                                  size="small"
+                                  variant="outlined"
+                                  href={doc.pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                                >
+                                  {doc.pdfFileName || `Document ${docIndex + 1}`}
+                                </Button>
+                              ))}
+                            </Stack>
+                          </Box>
+                        )}
                       </Box>
                     </AccordionDetails>
                   </Accordion>
