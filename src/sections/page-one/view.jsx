@@ -48,6 +48,9 @@ export function PageOneView() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
   const [billFiles, setBillFiles] = useState({});
+  const [uploading, setUploading] = useState({});
+  const [uploadSuccess, setUploadSuccess] = useState({});
+  const [uploadError, setUploadError] = useState({});
 
   const isViewMode = dialogMode === 'view';
 
@@ -142,23 +145,110 @@ export function PageOneView() {
     });
   };
 
-  const handleBillFileChange = (userId, type) => (event) => {
+  const handleBillFileChange = (userId, type) => async (event) => {
     const file = event.target.files?.[0];
-    if (!file || file.type !== 'application/pdf') {
+    if (!file) {
       event.target.value = '';
       return;
     }
 
-    setBillFiles((prev) => ({
+    if (file.type !== 'application/pdf') {
+      setUploadError((prev) => ({
+        ...prev,
+        [`${userId}-${type}`]: 'Only PDF files are allowed',
+      }));
+      event.target.value = '';
+      return;
+    }
+
+    // Check file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError((prev) => ({
+        ...prev,
+        [`${userId}-${type}`]: 'File size must be less than 10MB',
+      }));
+      event.target.value = '';
+      return;
+    }
+
+    // Clear previous errors
+    setUploadError((prev) => {
+      const newError = { ...prev };
+      delete newError[`${userId}-${type}`];
+      return newError;
+    });
+
+    // Set uploading state
+    setUploading((prev) => ({
       ...prev,
-      [userId]: {
-        ...(prev[userId] || {}),
-        [type]: file,
-      },
+      [`${userId}-${type}`]: true,
     }));
 
-    // Allow re-selecting the same file if needed.
-    event.target.value = '';
+    try {
+      const formData = new FormData();
+      formData.append('pdf', file);
+
+      let response;
+      if (type === 'billInfo' || type === 'billUpload') {
+        // Upload as a new bill
+        response = await axios.post(endpoints.users.uploadBill(userId), formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        throw new Error('Unknown upload type');
+      }
+
+      if (response.data.success) {
+        // Show success
+        setUploadSuccess((prev) => ({
+          ...prev,
+          [`${userId}-${type}`]: true,
+        }));
+
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setUploadSuccess((prev) => {
+            const newSuccess = { ...prev };
+            delete newSuccess[`${userId}-${type}`];
+            return newSuccess;
+          });
+        }, 3000);
+
+        // Refresh user list to show updated bill count
+        const fetchResponse = await axios.get(endpoints.users.list, {
+          params: {
+            page: page + 1,
+            limit: rowsPerPage,
+            search: searchQuery,
+          },
+        });
+
+        if (fetchResponse.data.success) {
+          setRows(fetchResponse.data.data);
+          setTotal(fetchResponse.data.pagination.total);
+        }
+      }
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        'Failed to upload file';
+      setUploadError((prev) => ({
+        ...prev,
+        [`${userId}-${type}`]: message,
+      }));
+    } finally {
+      setUploading((prev) => {
+        const newUploading = { ...prev };
+        delete newUploading[`${userId}-${type}`];
+        return newUploading;
+      });
+      event.target.value = '';
+    }
   };
 
   return (
@@ -213,8 +303,15 @@ export function PageOneView() {
                     </TableRow>
                   ) : (
                     rows.map((row) => {
-                      const hasBillInfo = Boolean(billFiles[row._id]?.billInfo);
-                      const hasBillUpload = Boolean(billFiles[row._id]?.billUpload);
+                      const userId = row._id;
+                      const billInfoKey = `${userId}-billInfo`;
+                      const billUploadKey = `${userId}-billUpload`;
+                      const isUploadingBillInfo = uploading[billInfoKey];
+                      const isUploadingBillUpload = uploading[billUploadKey];
+                      const billInfoSuccess = uploadSuccess[billInfoKey];
+                      const billUploadSuccess = uploadSuccess[billUploadKey];
+                      const billInfoError = uploadError[billInfoKey];
+                      const billUploadError = uploadError[billUploadKey];
 
                       return (
                       <TableRow key={row._id} hover>
@@ -253,43 +350,55 @@ export function PageOneView() {
                               View
                             </Button>
 
-                            <Tooltip title="Add Bill Information">
-                              <Badge variant="dot" color="success" invisible={!hasBillInfo}>
+                            <Tooltip title={billInfoError || billInfoSuccess ? (billInfoSuccess ? 'Uploaded successfully!' : billInfoError) : 'Add Bill Information'}>
+                              <Badge variant="dot" color="success" invisible={!billInfoSuccess}>
                                 <Button
                                   component="label"
                                   size="small"
                                   variant="outlined"
-                                  color="primary"
+                                  color={billInfoSuccess ? 'success' : billInfoError ? 'error' : 'primary'}
                                   sx={{ minWidth: 0, px: 1 }}
                                   aria-label="Add Bill Information"
+                                  disabled={isUploadingBillInfo}
                                 >
-                                  <Iconify icon="solar:document-add-bold-duotone" />
+                                  {isUploadingBillInfo ? (
+                                    <CircularProgress size={16} />
+                                  ) : (
+                                    <Iconify icon="solar:document-add-bold-duotone" />
+                                  )}
                                   <input
                                     hidden
                                     type="file"
                                     accept="application/pdf"
                                     onChange={handleBillFileChange(row._id, 'billInfo')}
+                                    disabled={isUploadingBillInfo}
                                   />
                                 </Button>
                               </Badge>
                             </Tooltip>
 
-                            <Tooltip title="Upload bill">
-                              <Badge variant="dot" color="success" invisible={!hasBillUpload}>
+                            <Tooltip title={billUploadError || billUploadSuccess ? (billUploadSuccess ? 'Uploaded successfully!' : billUploadError) : 'Upload bill'}>
+                              <Badge variant="dot" color="success" invisible={!billUploadSuccess}>
                                 <Button
                                   component="label"
                                   size="small"
                                   variant="outlined"
-                                  color="secondary"
+                                  color={billUploadSuccess ? 'success' : billUploadError ? 'error' : 'secondary'}
                                   sx={{ minWidth: 0, px: 1 }}
                                   aria-label="Upload bill"
+                                  disabled={isUploadingBillUpload}
                                 >
-                                  <Iconify icon="solar:upload-bold-duotone" />
+                                  {isUploadingBillUpload ? (
+                                    <CircularProgress size={16} />
+                                  ) : (
+                                    <Iconify icon="solar:upload-bold-duotone" />
+                                  )}
                                   <input
                                     hidden
                                     type="file"
                                     accept="application/pdf"
                                     onChange={handleBillFileChange(row._id, 'billUpload')}
+                                    disabled={isUploadingBillUpload}
                                   />
                                 </Button>
                               </Badge>
