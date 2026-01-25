@@ -2,11 +2,11 @@ import { setFont, pxToRem, responsiveFontSizes } from '../styles/utils';
 
 // ----------------------------------------------------------------------
 
-export const defaultFont = 'Public Sans Variable';
+export const defaultFont = 'DM Sans Variable';
 
 export const primaryFont = setFont(defaultFont);
 
-export const secondaryFont = setFont('Barlow');
+export const secondaryFont = setFont('DM Sans Variable');
 
 // ----------------------------------------------------------------------
 

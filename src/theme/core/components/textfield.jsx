@@ -44,7 +44,7 @@ const MuiInput = {
       '&::before': {
         borderBottomColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.32),
       },
-      '&::after': { borderBottomColor: theme.vars.palette.text.primary },
+      '&::after': { borderBottomColor: theme.vars.palette.primary.main },
     }),
   },
 };
@@ -59,7 +59,7 @@ const MuiOutlinedInput = {
     root: ({ theme }) => ({
       [`&.${outlinedInputClasses.focused}`]: {
         [`& .${outlinedInputClasses.notchedOutline}`]: {
-          borderColor: theme.vars.palette.text.primary,
+          borderColor: theme.vars.palette.primary.main,
         },
       },
       [`&.${outlinedInputClasses.error}`]: {
@@ -101,7 +101,7 @@ const MuiFilledInput = {
         backgroundColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
       },
       [`&.${filledInputClasses.focused}`]: {
-        backgroundColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.16),
+        backgroundColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.12),
       },
       [`&.${filledInputClasses.error}`]: {
         backgroundColor: varAlpha(theme.vars.palette.error.mainChannel, 0.08),
