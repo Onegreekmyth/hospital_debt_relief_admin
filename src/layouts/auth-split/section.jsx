@@ -16,6 +16,7 @@ export function Section({
   method,
   layoutQuery,
   methods,
+  titleSx,
   title = 'Manage the job',
   imgUrl = `${CONFIG.assetsDir}/assets/illustrations/illustration-dashboard.webp`,
   subtitle = 'More effectively with optimized workflows.',
@@ -52,7 +53,7 @@ export function Section({
       {...other}
     >
       <div>
-        <Typography variant="h3" sx={{ textAlign: 'center' }}>
+        <Typography variant="h3" sx={{ textAlign: 'center', ...titleSx }}>
           {title}
         </Typography>
 
