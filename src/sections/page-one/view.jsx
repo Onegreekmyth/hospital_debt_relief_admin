@@ -42,11 +42,15 @@ export function PageOneView() {
   const [currentRow, setCurrentRow] = useState(null);
   const [formValues, setFormValues] = useState({ name: '', email: '', phone: '', isVerified: false });
   const [eligibilityData, setEligibilityData] = useState([]);
+  const [billsData, setBillsData] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
   const [billFiles, setBillFiles] = useState({});
+  const [uploading, setUploading] = useState({});
+  const [uploadSuccess, setUploadSuccess] = useState({});
+  const [uploadError, setUploadError] = useState({});
 
   const isViewMode = dialogMode === 'view';
 
@@ -94,11 +98,13 @@ export function PageOneView() {
         phone: row.phone || '',
         isVerified: row.isVerified || false,
       });
-      // Set eligibility data from the row
+      // Set eligibility data and bills from the row
       setEligibilityData(row.eligibilityRequests || []);
+      setBillsData(row.bills || []);
     } else {
       setFormValues({ name: '', email: '', phone: '', isVerified: false });
       setEligibilityData([]);
+      setBillsData([]);
     }
     setOpenDialog(true);
   };
@@ -139,23 +145,110 @@ export function PageOneView() {
     });
   };
 
-  const handleBillFileChange = (userId, type) => (event) => {
+  const handleBillFileChange = (userId, type) => async (event) => {
     const file = event.target.files?.[0];
-    if (!file || file.type !== 'application/pdf') {
+    if (!file) {
       event.target.value = '';
       return;
     }
 
-    setBillFiles((prev) => ({
+    if (file.type !== 'application/pdf') {
+      setUploadError((prev) => ({
+        ...prev,
+        [`${userId}-${type}`]: 'Only PDF files are allowed',
+      }));
+      event.target.value = '';
+      return;
+    }
+
+    // Check file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError((prev) => ({
+        ...prev,
+        [`${userId}-${type}`]: 'File size must be less than 10MB',
+      }));
+      event.target.value = '';
+      return;
+    }
+
+    // Clear previous errors
+    setUploadError((prev) => {
+      const newError = { ...prev };
+      delete newError[`${userId}-${type}`];
+      return newError;
+    });
+
+    // Set uploading state
+    setUploading((prev) => ({
       ...prev,
-      [userId]: {
-        ...(prev[userId] || {}),
-        [type]: file,
-      },
+      [`${userId}-${type}`]: true,
     }));
 
-    // Allow re-selecting the same file if needed.
-    event.target.value = '';
+    try {
+      const formData = new FormData();
+      formData.append('pdf', file);
+
+      let response;
+      if (type === 'billInfo' || type === 'billUpload') {
+        // Upload as a new bill
+        response = await axios.post(endpoints.users.uploadBill(userId), formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        throw new Error('Unknown upload type');
+      }
+
+      if (response.data.success) {
+        // Show success
+        setUploadSuccess((prev) => ({
+          ...prev,
+          [`${userId}-${type}`]: true,
+        }));
+
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setUploadSuccess((prev) => {
+            const newSuccess = { ...prev };
+            delete newSuccess[`${userId}-${type}`];
+            return newSuccess;
+          });
+        }, 3000);
+
+        // Refresh user list to show updated bill count
+        const fetchResponse = await axios.get(endpoints.users.list, {
+          params: {
+            page: page + 1,
+            limit: rowsPerPage,
+            search: searchQuery,
+          },
+        });
+
+        if (fetchResponse.data.success) {
+          setRows(fetchResponse.data.data);
+          setTotal(fetchResponse.data.pagination.total);
+        }
+      }
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        'Failed to upload file';
+      setUploadError((prev) => ({
+        ...prev,
+        [`${userId}-${type}`]: message,
+      }));
+    } finally {
+      setUploading((prev) => {
+        const newUploading = { ...prev };
+        delete newUploading[`${userId}-${type}`];
+        return newUploading;
+      });
+      event.target.value = '';
+    }
   };
 
   return (
@@ -194,6 +287,7 @@ export function PageOneView() {
                     <TableCell>Phone</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Eligibility Requests</TableCell>
+                    <TableCell>Bills</TableCell>
                     <TableCell>Created At</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -201,7 +295,7 @@ export function PageOneView() {
                 <TableBody>
                   {rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
                           No users found
                         </Typography>
@@ -209,8 +303,15 @@ export function PageOneView() {
                     </TableRow>
                   ) : (
                     rows.map((row) => {
-                      const hasBillInfo = Boolean(billFiles[row._id]?.billInfo);
-                      const hasBillUpload = Boolean(billFiles[row._id]?.billUpload);
+                      const userId = row._id;
+                      const billInfoKey = `${userId}-billInfo`;
+                      const billUploadKey = `${userId}-billUpload`;
+                      const isUploadingBillInfo = uploading[billInfoKey];
+                      const isUploadingBillUpload = uploading[billUploadKey];
+                      const billInfoSuccess = uploadSuccess[billInfoKey];
+                      const billUploadSuccess = uploadSuccess[billUploadKey];
+                      const billInfoError = uploadError[billInfoKey];
+                      const billUploadError = uploadError[billUploadKey];
 
                       return (
                       <TableRow key={row._id} hover>
@@ -231,6 +332,13 @@ export function PageOneView() {
                             size="small"
                           />
                         </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={row.billCount || 0}
+                            color={row.billCount > 0 ? 'secondary' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
                         <TableCell>{formatDate(row.createdAt)}</TableCell>
                         <TableCell align="right">
                           <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
@@ -242,43 +350,55 @@ export function PageOneView() {
                               View
                             </Button>
 
-                            <Tooltip title="Add Bill Information">
-                              <Badge variant="dot" color="success" invisible={!hasBillInfo}>
+                            <Tooltip title={billInfoError || billInfoSuccess ? (billInfoSuccess ? 'Uploaded successfully!' : billInfoError) : 'Add Bill Information'}>
+                              <Badge variant="dot" color="success" invisible={!billInfoSuccess}>
                                 <Button
                                   component="label"
                                   size="small"
                                   variant="outlined"
-                                  color="primary"
+                                  color={billInfoSuccess ? 'success' : billInfoError ? 'error' : 'primary'}
                                   sx={{ minWidth: 0, px: 1 }}
                                   aria-label="Add Bill Information"
+                                  disabled={isUploadingBillInfo}
                                 >
-                                  <Iconify icon="solar:document-add-bold-duotone" />
+                                  {isUploadingBillInfo ? (
+                                    <CircularProgress size={16} />
+                                  ) : (
+                                    <Iconify icon="solar:document-add-bold-duotone" />
+                                  )}
                                   <input
                                     hidden
                                     type="file"
                                     accept="application/pdf"
                                     onChange={handleBillFileChange(row._id, 'billInfo')}
+                                    disabled={isUploadingBillInfo}
                                   />
                                 </Button>
                               </Badge>
                             </Tooltip>
 
-                            <Tooltip title="Upload bill">
-                              <Badge variant="dot" color="success" invisible={!hasBillUpload}>
+                            <Tooltip title={billUploadError || billUploadSuccess ? (billUploadSuccess ? 'Uploaded successfully!' : billUploadError) : 'Upload bill'}>
+                              <Badge variant="dot" color="success" invisible={!billUploadSuccess}>
                                 <Button
                                   component="label"
                                   size="small"
                                   variant="outlined"
-                                  color="secondary"
+                                  color={billUploadSuccess ? 'success' : billUploadError ? 'error' : 'secondary'}
                                   sx={{ minWidth: 0, px: 1 }}
                                   aria-label="Upload bill"
+                                  disabled={isUploadingBillUpload}
                                 >
-                                  <Iconify icon="solar:upload-bold-duotone" />
+                                  {isUploadingBillUpload ? (
+                                    <CircularProgress size={16} />
+                                  ) : (
+                                    <Iconify icon="solar:upload-bold-duotone" />
+                                  )}
                                   <input
                                     hidden
                                     type="file"
                                     accept="application/pdf"
                                     onChange={handleBillFileChange(row._id, 'billUpload')}
+                                    disabled={isUploadingBillUpload}
                                   />
                                 </Button>
                               </Badge>
@@ -466,6 +586,136 @@ export function PageOneView() {
                             {formatDate(eligibility.createdAt)}
                           </Typography>
                         </Box>
+                      </Box>
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+              </Stack>
+            )}
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" sx={{ mb: 2 }}>
+              Bills ({billsData.length})
+            </Typography>
+
+            {billsData.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                No bills found for this user.
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {billsData.map((bill, index) => (
+                  <Accordion key={bill._id || index}>
+                    <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
+                      <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
+                        <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                          {bill.patientName || 'Unknown Patient'}
+                        </Typography>
+                        <Chip
+                          label={`$${bill.billAmount?.toLocaleString() || '0'}`}
+                          color="primary"
+                          size="small"
+                        />
+                        <Chip
+                          label={bill.status || 'pending'}
+                          color={
+                            bill.status === 'approved'
+                              ? 'success'
+                              : bill.status === 'rejected'
+                              ? 'error'
+                              : bill.status === 'submitted' || bill.status === 'processing'
+                              ? 'info'
+                              : 'default'
+                          }
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                          gap: 2,
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Patient Name
+                          </Typography>
+                          <Typography variant="body2">{bill.patientName || 'N/A'}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Bill Amount
+                          </Typography>
+                          <Typography variant="body2">
+                            ${bill.billAmount?.toLocaleString() || 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Service Date
+                          </Typography>
+                          <Typography variant="body2">
+                            {bill.serviceDate ? formatDate(bill.serviceDate) : 'N/A'}
+                          </Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Status
+                          </Typography>
+                          <Typography variant="body2">{bill.status || 'N/A'}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Submitted At
+                          </Typography>
+                          <Typography variant="body2">
+                            {bill.submittedAt ? formatDate(bill.submittedAt) : formatDate(bill.createdAt)}
+                          </Typography>
+                        </Box>
+                        {bill.pdfUrl && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Bill PDF
+                            </Typography>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              href={bill.pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                            >
+                              View PDF
+                            </Button>
+                          </Box>
+                        )}
+                        {bill.supportingDocuments && bill.supportingDocuments.length > 0 && (
+                          <Box sx={{ gridColumn: '1 / -1' }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                              Supporting Documents ({bill.supportingDocuments.length})
+                            </Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                              {bill.supportingDocuments.map((doc, docIndex) => (
+                                <Button
+                                  key={docIndex}
+                                  size="small"
+                                  variant="outlined"
+                                  href={doc.pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                                >
+                                  {doc.pdfFileName || `Document ${docIndex + 1}`}
+                                </Button>
+                              ))}
+                            </Stack>
+                          </Box>
+                        )}
                       </Box>
                     </AccordionDetails>
                   </Accordion>
