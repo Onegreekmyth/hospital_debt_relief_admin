@@ -92,8 +92,10 @@ export function PageOneView() {
     setDialogMode(mode);
     setCurrentRow(row);
     if (row) {
+      const displayName =
+        [row.firstName, row.lastName].filter(Boolean).join(' ') || row.name || '';
       setFormValues({
-        name: row.name || '',
+        name: displayName,
         email: row.email || '',
         phone: row.phone || '',
         isVerified: row.isVerified || false,
@@ -144,6 +146,9 @@ export function PageOneView() {
       day: 'numeric',
     });
   };
+
+  const getDisplayName = (row) =>
+    [row?.firstName, row?.lastName].filter(Boolean).join(' ') || row?.name || 'N/A';
 
   const handleBillFileChange = (userId, type) => async (event) => {
     const file = event.target.files?.[0];
@@ -315,7 +320,7 @@ export function PageOneView() {
 
                       return (
                       <TableRow key={row._id} hover>
-                        <TableCell>{row.name || 'N/A'}</TableCell>
+                        <TableCell>{getDisplayName(row)}</TableCell>
                         <TableCell>{row.email || 'N/A'}</TableCell>
                         <TableCell>{row.phone || 'N/A'}</TableCell>
                         <TableCell>
