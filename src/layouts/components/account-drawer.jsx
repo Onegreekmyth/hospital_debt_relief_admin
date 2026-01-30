@@ -25,7 +25,8 @@ export function AccountDrawer({ data = [], sx, ...other }) {
 
   const { user } = useAuthContext();
 
-  const displayName = user?.name || user?.displayName || user?.email || 'User';
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
+  const displayName = fullName || user?.displayName || user?.email || 'User';
   const email = user?.email || '';
   const avatarSrc = user?.photoURL || undefined;
 

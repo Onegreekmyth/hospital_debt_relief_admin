@@ -20,13 +20,15 @@ import { useMockedUser } from 'src/auth/hooks';
 
 export function NavUpgrade({ sx, ...other }) {
   const { user } = useMockedUser();
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
+  const displayName = fullName || user?.displayName || user?.email || 'User';
 
   return (
     <Stack sx={{ px: 2, py: 5, textAlign: 'center', ...sx }} {...other}>
       <Stack alignItems="center">
         <Box sx={{ position: 'relative' }}>
-          <Avatar src={user?.photoURL} alt={user?.displayName} sx={{ width: 48, height: 48 }}>
-            {user?.displayName?.charAt(0).toUpperCase()}
+          <Avatar src={user?.photoURL} alt={displayName} sx={{ width: 48, height: 48 }}>
+            {displayName?.charAt(0).toUpperCase()}
           </Avatar>
 
           <Label
@@ -51,7 +53,7 @@ export function NavUpgrade({ sx, ...other }) {
             noWrap
             sx={{ color: 'var(--layout-nav-text-primary-color)' }}
           >
-            {user?.displayName}
+            {displayName}
           </Typography>
 
           <Typography
