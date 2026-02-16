@@ -31,6 +31,25 @@ import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
 import axios, { endpoints } from 'src/utils/axios';
 
+// Document type value -> label (matches Hospital_Debt_Relief_Web BillInformationModal)
+const DOCUMENT_TYPE_LABELS = {
+  hospital_bill: 'Hospital Bill',
+  drivers_license: 'Drivers License',
+  utility_bill: 'Utility Bill',
+  w2: 'W-2',
+  prior_year_tax_return: "Prior Year's Tax Return",
+  three_most_recent_paycheck_stubs: 'Three Most Recent Paycheck Stubs',
+  proof_of_child_support_income: 'Proof of Child Support Income',
+  retirement_check_stubs: 'Retirement Check Stubs',
+  social_security_letters_or_deposit_slips: 'Social Security Letters or Deposit Slips',
+  unemployment_check_stubs: 'Unemployment Check Stubs',
+  other_governmental_program_check_stubs: 'Other Governmental Program Check Stubs',
+  letter_from_employer: 'Letter from Employer',
+};
+
+const getDocumentTypeLabel = (value) =>
+  (value && DOCUMENT_TYPE_LABELS[value]) || value || '—';
+
 // ----------------------------------------------------------------------
 
 export function PageOneView() {
@@ -615,10 +634,17 @@ export function PageOneView() {
                 {billsData.map((bill, index) => (
                   <Accordion key={bill._id || index}>
                     <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
-                      <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
-                        <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                      <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }} flexWrap="wrap">
+                        <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 120 }}>
                           {bill.patientName || 'Unknown Patient'}
                         </Typography>
+                        {bill.documentType && (
+                          <Chip
+                            label={getDocumentTypeLabel(bill.documentType)}
+                            size="small"
+                            variant="outlined"
+                          />
+                        )}
                         <Chip
                           label={`$${bill.billAmount?.toLocaleString() || '0'}`}
                           color="primary"
@@ -653,6 +679,14 @@ export function PageOneView() {
                             Patient Name
                           </Typography>
                           <Typography variant="body2">{bill.patientName || 'N/A'}</Typography>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Type
+                          </Typography>
+                          <Typography variant="body2">
+                            {getDocumentTypeLabel(bill.documentType)}
+                          </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">
