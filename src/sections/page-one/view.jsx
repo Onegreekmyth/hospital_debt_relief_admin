@@ -171,6 +171,12 @@ export function PageOneView() {
   const getDisplayName = (row) =>
     [row?.firstName, row?.lastName].filter(Boolean).join(' ') || row?.name || 'N/A';
 
+  const getActiveBillsCount = (row) => {
+    const bills = row?.bills;
+    if (!Array.isArray(bills)) return row?.billCount ?? 0;
+    return bills.filter((bill) => (bill?.status || '').toLowerCase() !== 'inactive').length;
+  };
+
   const handleBillFileChange = (userId, type) => async (event) => {
     const file = event.target.files?.[0];
     if (!file) {
@@ -330,6 +336,7 @@ export function PageOneView() {
                   ) : (
                     rows.map((row) => {
                       const userId = row._id;
+                      const activeBillsCount = getActiveBillsCount(row);
                       const billInfoKey = `${userId}-billInfo`;
                       const billUploadKey = `${userId}-billUpload`;
                       const isUploadingBillInfo = uploading[billInfoKey];
@@ -360,8 +367,8 @@ export function PageOneView() {
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={row.billCount || 0}
-                            color={row.billCount > 0 ? 'secondary' : 'default'}
+                            label={activeBillsCount}
+                            color={activeBillsCount > 0 ? 'secondary' : 'default'}
                             size="small"
                           />
                         </TableCell>
@@ -751,6 +758,7 @@ export function PageOneView() {
                                   rel="noopener noreferrer"
                                   startIcon={<Iconify icon="solar:document-bold-duotone" />}
                                 >
+                                  {doc.documentType ? `${getDocumentTypeLabel(doc.documentType)}: ` : ''}
                                   {doc.pdfFileName || `Document ${docIndex + 1}`}
                                 </Button>
                               ))}
