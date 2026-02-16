@@ -102,7 +102,9 @@ export function PageOneView() {
       });
       // Set eligibility data and bills from the row
       setEligibilityData(row.eligibilityRequests || []);
-      setBillsData(row.bills || []);
+      setBillsData(
+        (row.bills || []).filter((bill) => (bill?.status || '').toLowerCase() !== 'inactive')
+      );
     } else {
       setFormValues({ name: '', email: '', phone: '', isVerified: false });
       setEligibilityData([]);
