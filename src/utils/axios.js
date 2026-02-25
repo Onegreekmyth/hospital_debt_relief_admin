@@ -62,6 +62,7 @@ export const endpoints = {
     list: '/api/v1/admin/users',
     uploadBill: (userId) => `/api/v1/admin/users/${userId}/bills`,
     uploadSupportingDoc: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/supporting-documents`,
+    updateBillStatus: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/status`,
   },
   mail: {
     list: '/api/mail/list',

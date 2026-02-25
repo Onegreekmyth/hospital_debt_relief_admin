@@ -47,7 +47,7 @@ export const navData = [
     subheader: 'Overview 6.0.0',
     items: [
       { title: 'Users', path: paths.dashboard.root, icon: ICONS.user },
-      { title: 'Two', path: paths.dashboard.two, icon: ICONS.ecommerce },
+      { title: 'Bill Approval', path: paths.dashboard.two, icon: ICONS.ecommerce },
       { title: 'Three', path: paths.dashboard.three, icon: ICONS.analytics },
     ],
   },
