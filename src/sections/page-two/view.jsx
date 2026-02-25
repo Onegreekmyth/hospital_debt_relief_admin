@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -10,6 +10,7 @@ import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
+import TablePagination from '@mui/material/TablePagination';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -88,6 +89,14 @@ export function PageTwoView() {
   const [updatingBillId, setUpdatingBillId] = useState(null);
   const [updatingAction, setUpdatingAction] = useState(null); // 'approved' | 'rejected'
   const [documentsBill, setDocumentsBill] = useState(null); // bill for documents dialog
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const paginatedBills = useMemo(
+    () =>
+      bills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [bills, page, rowsPerPage]
+  );
 
   const fetchBills = useCallback(async () => {
     try {
@@ -143,6 +152,15 @@ export function PageTwoView() {
     return 'default';
   };
 
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={3}>
@@ -174,7 +192,7 @@ export function PageTwoView() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {bills.length === 0 ? (
+                  {paginatedBills.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
@@ -183,7 +201,7 @@ export function PageTwoView() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    bills.map((bill) => {
+                    paginatedBills.map((bill) => {
                       const isUpdating = updatingBillId === bill._id;
                       const isApproving = isUpdating && updatingAction === 'approved';
                       const isRejecting = isUpdating && updatingAction === 'rejected';
@@ -280,6 +298,18 @@ export function PageTwoView() {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+
+          {!loading && bills.length > 0 && (
+            <TablePagination
+              component="div"
+              count={bills.length}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              rowsPerPageOptions={[5, 10, 25, 50]}
+            />
           )}
         </Card>
 
