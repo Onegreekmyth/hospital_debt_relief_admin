@@ -747,21 +747,31 @@ export function PageOneView() {
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                               Supporting Documents ({bill.supportingDocuments.length})
                             </Typography>
-                            <Stack direction="row" spacing={1} flexWrap="wrap">
-                              {bill.supportingDocuments.map((doc, docIndex) => (
-                                <Button
-                                  key={docIndex}
-                                  size="small"
-                                  variant="outlined"
-                                  href={doc.pdfUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                                >
-                                  {doc.documentType ? `${getDocumentTypeLabel(doc.documentType)}: ` : ''}
-                                  {doc.pdfFileName || `Document ${docIndex + 1}`}
-                                </Button>
-                              ))}
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                              {bill.supportingDocuments.map((doc, docIndex) => {
+                                const typeLabel = doc.documentType
+                                  ? (DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType)
+                                  : null;
+                                return (
+                                  <Box key={docIndex} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.25 }}>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      href={doc.pdfUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                                    >
+                                      {doc.pdfFileName || `Document ${docIndex + 1}`}
+                                    </Button>
+                                    {typeLabel && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        Type: {typeLabel}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                );
+                              })}
                             </Stack>
                           </Box>
                         )}
