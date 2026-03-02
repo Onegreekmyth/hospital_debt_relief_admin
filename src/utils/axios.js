@@ -64,6 +64,10 @@ export const endpoints = {
     uploadSupportingDoc: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/supporting-documents`,
     updateBillStatus: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/status`,
   },
+  refundRequests: {
+    list: '/api/v1/admin/refund-requests',
+    processRefund: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/refund`,
+  },
   mail: {
     list: '/api/mail/list',
     details: '/api/mail/details',
