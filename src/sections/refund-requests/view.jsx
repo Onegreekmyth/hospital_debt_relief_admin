@@ -182,12 +182,17 @@ export function RefundRequestsView() {
                           </TableCell>
                           <TableCell align="right">
                             $
-                            {bill.billAmount != null
-                              ? Number(bill.billAmount).toLocaleString(undefined, {
+                            {(bill.revisedAmount != null ? bill.revisedAmount : bill.billAmount) != null
+                              ? Number(bill.revisedAmount != null ? bill.revisedAmount : bill.billAmount).toLocaleString(undefined, {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,
                                 })
                               : '—'}
+                            {bill.revisedAmount != null && (
+                              <Typography component="span" variant="caption" display="block" color="text.secondary">
+                                Revised
+                              </Typography>
+                            )}
                           </TableCell>
                           <TableCell>{formatDate(bill.refundRequestedAt)}</TableCell>
                           <TableCell align="right">

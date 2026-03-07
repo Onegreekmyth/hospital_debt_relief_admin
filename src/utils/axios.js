@@ -63,6 +63,7 @@ export const endpoints = {
     uploadBill: (userId) => `/api/v1/admin/users/${userId}/bills`,
     uploadSupportingDoc: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/supporting-documents`,
     updateBillStatus: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/status`,
+    deleteBill: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}`,
   },
   refundRequests: {
     list: '/api/v1/admin/refund-requests',

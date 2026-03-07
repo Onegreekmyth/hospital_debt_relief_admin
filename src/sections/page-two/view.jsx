@@ -60,15 +60,13 @@ function formatDate(dateString) {
   });
 }
 
-// Flatten users + bills into rows (exclude inactive bills)
+// Flatten users + bills into rows (include inactive so admin can see and delete them)
 function flattenBills(users) {
   if (!Array.isArray(users)) return [];
   const rows = [];
   users.forEach((user) => {
     const bills = user.bills || [];
     bills.forEach((bill) => {
-      const status = (bill.status || '').toLowerCase();
-      if (status === 'inactive') return;
       rows.push({
         ...bill,
         userId: user._id,
@@ -80,6 +78,12 @@ function flattenBills(users) {
   return rows;
 }
 
+function getDisplayStatus(bill) {
+  const s = (bill.status || '').toLowerCase();
+  if (s === 'inactive') return 'Incomplete';
+  return bill.status || 'pending';
+}
+
 // ----------------------------------------------------------------------
 
 export function PageTwoView() {
@@ -89,6 +93,8 @@ export function PageTwoView() {
   const [updatingBillId, setUpdatingBillId] = useState(null);
   const [updatingAction, setUpdatingAction] = useState(null); // 'approved' | 'rejected'
   const [documentsBill, setDocumentsBill] = useState(null); // bill for documents dialog
+  const [billToDelete, setBillToDelete] = useState(null);
+  const [deletingBillId, setDeletingBillId] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -141,15 +147,38 @@ export function PageTwoView() {
 
   const canChangeStatus = (bill) => {
     const s = (bill.status || '').toLowerCase();
+    if (s === 'inactive') return false;
     return s === 'pending' || s === 'submitted' || s === 'processing';
   };
 
-  const getStatusColor = (status) => {
+  const isBillInactive = (bill) => (bill.status || '').toLowerCase() === 'inactive';
+
+  const getStatusColor = (status, bill) => {
     const s = (status || '').toLowerCase();
+    if (s === 'inactive' || (bill && (bill.status || '').toLowerCase() === 'inactive')) return 'warning';
     if (s === 'approved') return 'success';
     if (s === 'rejected') return 'error';
     if (s === 'submitted' || s === 'processing') return 'info';
     return 'default';
+  };
+
+  const handleDeleteBillClick = (bill) => {
+    setBillToDelete(bill);
+  };
+
+  const handleConfirmDeleteBill = async () => {
+    if (!billToDelete?.userId || !billToDelete?._id) return;
+    setDeletingBillId(billToDelete._id);
+    try {
+      await axios.delete(endpoints.users.deleteBill(billToDelete.userId, billToDelete._id));
+      setBills((prev) => prev.filter((b) => !(b.userId === billToDelete.userId && b._id === billToDelete._id)));
+      setBillToDelete(null);
+    } catch (err) {
+      console.error('Error deleting bill:', err);
+      setError(err?.message || 'Failed to delete bill');
+    } finally {
+      setDeletingBillId(null);
+    }
   };
 
   const handleChangePage = (event, newPage) => {
@@ -185,6 +214,7 @@ export function PageTwoView() {
                     <TableCell>User</TableCell>
                     <TableCell>Patient name</TableCell>
                     <TableCell align="right">Bill amount</TableCell>
+                    <TableCell align="right">Revised amount</TableCell>
                     <TableCell>Service date</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Documents</TableCell>
@@ -194,7 +224,7 @@ export function PageTwoView() {
                 <TableBody>
                   {paginatedBills.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
                           No bills to review.
                         </Typography>
@@ -220,15 +250,30 @@ export function PageTwoView() {
                           </TableCell>
                           <TableCell>{bill.patientName || '—'}</TableCell>
                           <TableCell align="right">
-                            ${bill.billAmount != null ? Number(bill.billAmount).toLocaleString() : '—'}
+                            {bill.revisedAmount != null ? (
+                              <>
+                                ${Number(bill.revisedAmount).toLocaleString()}
+                                <Typography component="span" variant="caption" display="block" color="text.secondary">
+                                  (Revised · orig. ${bill.billAmount != null ? Number(bill.billAmount).toLocaleString() : '—'})
+                                </Typography>
+                              </>
+                            ) : (
+                              bill.billAmount != null ? `$${Number(bill.billAmount).toLocaleString()}` : '—'
+                            )}
+                          </TableCell>
+                          <TableCell align="right">
+                            {bill.revisedAmount != null
+                              ? `$${Number(bill.revisedAmount).toLocaleString()}`
+                              : '—'}
                           </TableCell>
                           <TableCell>{formatDate(bill.serviceDate)}</TableCell>
                           <TableCell>
                             <Chip
-                              label={bill.status || 'pending'}
-                              color={getStatusColor(bill.status)}
+                              label={getDisplayStatus(bill)}
+                              color={getStatusColor(bill.status, bill)}
                               size="small"
                               variant="outlined"
+                              title={isBillInactive(bill) ? 'User has not completed this bill yet. You can delete it.' : undefined}
                             />
                           </TableCell>
                           <TableCell>
@@ -242,54 +287,75 @@ export function PageTwoView() {
                             </Button>
                           </TableCell>
                           <TableCell align="right">
-                            {canChange ? (
-                              <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                <Button
-                                  size="small"
-                                  variant="contained"
-                                  color="success"
-                                  disabled={isUpdating}
-                                  startIcon={
-                                    isApproving ? (
-                                      <CircularProgress size={14} color="inherit" />
-                                    ) : (
-                                      <Iconify icon="eva:checkmark-circle-2-fill" />
-                                    )
-                                  }
-                                  onClick={() =>
-                                    updateStatus(bill.userId, bill._id, 'approved')
-                                  }
-                                >
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="contained"
-                                  color="error"
-                                  disabled={isUpdating}
-                                  startIcon={
-                                    isRejecting ? (
-                                      <CircularProgress size={14} color="inherit" />
-                                    ) : (
-                                      <Iconify icon="eva:close-circle-fill" />
-                                    )
-                                  }
-                                  onClick={() =>
-                                    updateStatus(bill.userId, bill._id, 'rejected')
-                                  }
-                                >
-                                  Reject
-                                </Button>
-                              </Stack>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                {bill.status === 'approved'
-                                  ? 'Approved'
-                                  : bill.status === 'rejected'
-                                    ? 'Rejected'
-                                    : '—'}
-                              </Typography>
-                            )}
+                            <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
+                              {canChange ? (
+                                <>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="success"
+                                    disabled={isUpdating}
+                                    startIcon={
+                                      isApproving ? (
+                                        <CircularProgress size={14} color="inherit" />
+                                      ) : (
+                                        <Iconify icon="eva:checkmark-circle-2-fill" />
+                                      )
+                                    }
+                                    onClick={() =>
+                                      updateStatus(bill.userId, bill._id, 'approved')
+                                    }
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="error"
+                                    disabled={isUpdating}
+                                    startIcon={
+                                      isRejecting ? (
+                                        <CircularProgress size={14} color="inherit" />
+                                      ) : (
+                                        <Iconify icon="eva:close-circle-fill" />
+                                      )
+                                    }
+                                    onClick={() =>
+                                      updateStatus(bill.userId, bill._id, 'rejected')
+                                    }
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              ) : (
+                                <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                                  {isBillInactive(bill)
+                                    ? 'Complete to approve'
+                                    : bill.status === 'approved'
+                                      ? 'Approved'
+                                      : bill.status === 'rejected'
+                                        ? 'Rejected'
+                                        : '—'}
+                                </Typography>
+                              )}
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                disabled={deletingBillId === bill._id}
+                                startIcon={
+                                  deletingBillId === bill._id ? (
+                                    <CircularProgress size={14} color="inherit" />
+                                  ) : (
+                                    <Iconify icon="solar:trash-bin-trash-bold" />
+                                  )
+                                }
+                                onClick={() => handleDeleteBillClick(bill)}
+                                title="Delete bill"
+                              >
+                                Delete
+                              </Button>
+                            </Stack>
                           </TableCell>
                         </TableRow>
                       );
@@ -389,6 +455,34 @@ export function PageTwoView() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setDocumentsBill(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete bill confirmation */}
+        <Dialog open={!!billToDelete} onClose={() => setBillToDelete(null)} maxWidth="xs" fullWidth>
+          <DialogTitle>Delete bill?</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">
+              {billToDelete?.patientName && (
+                <>
+                  This will permanently delete the bill for <strong>{billToDelete.patientName}</strong> and all
+                  associated documents. This cannot be undone.
+                </>
+              )}
+              {!billToDelete?.patientName && 'This will permanently delete the bill and all associated documents. This cannot be undone.'}
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setBillToDelete(null)}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleConfirmDeleteBill}
+              disabled={!!deletingBillId}
+              startIcon={deletingBillId ? <CircularProgress size={16} color="inherit" /> : null}
+            >
+              {deletingBillId ? 'Deleting…' : 'Delete'}
+            </Button>
           </DialogActions>
         </Dialog>
       </Stack>
