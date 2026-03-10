@@ -14,6 +14,7 @@ const OverviewPage = lazy(() => import('src/pages/dashboard/overview'));
 const UsersPage = lazy(() => import('src/pages/dashboard/one'));
 const PageTwo = lazy(() => import('src/pages/dashboard/two'));
 const RefundRequestsPage = lazy(() => import('src/pages/dashboard/refund-requests'));
+const BannerPage = lazy(() => import('src/pages/dashboard/banner'));
 const PageThree = lazy(() => import('src/pages/dashboard/three'));
 const PageFour = lazy(() => import('src/pages/dashboard/four'));
 const PageFive = lazy(() => import('src/pages/dashboard/five'));
@@ -38,6 +39,7 @@ export const dashboardRoutes = [
       { path: 'users', element: <UsersPage /> },
       { path: 'two', element: <PageTwo /> },
       { path: 'refund-requests', element: <RefundRequestsPage /> },
+      { path: 'banner', element: <BannerPage /> },
       { path: 'three', element: <PageThree /> },
       {
         path: 'group',

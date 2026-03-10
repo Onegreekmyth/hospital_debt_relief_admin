@@ -47,6 +47,7 @@ export const paths = {
     two: `${ROOTS.DASHBOARD}/two`,
     three: `${ROOTS.DASHBOARD}/three`,
     refundRequests: `${ROOTS.DASHBOARD}/refund-requests`,
+    banner: `${ROOTS.DASHBOARD}/banner`,
     group: {
       root: `${ROOTS.DASHBOARD}/group`,
       five: `${ROOTS.DASHBOARD}/group/five`,

@@ -50,6 +50,7 @@ export const navData = [
       { title: 'Users', path: paths.dashboard.users, icon: ICONS.user },
       { title: 'Bill Approval', path: paths.dashboard.two, icon: ICONS.ecommerce },
       { title: 'Refund Requests', path: paths.dashboard.refundRequests, icon: ICONS.banking },
+      { title: 'Home page banner', path: paths.dashboard.banner, icon: ICONS.booking },
       // { title: 'Three', path: paths.dashboard.three, icon: ICONS.analytics },
     ],
   },
