@@ -10,6 +10,7 @@ import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
@@ -21,6 +22,25 @@ import DialogActions from '@mui/material/DialogActions';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
 import axios, { endpoints } from 'src/utils/axios';
+
+// Document type labels (match Bill Approval page)
+const DOCUMENT_TYPE_LABELS = {
+  hospital_bill: 'Hospital Bill',
+  drivers_license: 'Drivers License',
+  utility_bill: 'Utility Bill',
+  w2: 'W-2',
+  prior_year_tax_return: "Prior Year's Tax Return",
+  three_most_recent_paycheck_stubs: 'Three Most Recent Paycheck Stubs',
+  proof_of_child_support_income: 'Proof of Child Support Income',
+  retirement_check_stubs: 'Retirement Check Stubs',
+  social_security_letters_or_deposit_slips: 'Social Security Letters or Deposit Slips',
+  unemployment_check_stubs: 'Unemployment Check Stubs',
+  other_governmental_program_check_stubs: 'Other Governmental Program Check Stubs',
+  letter_from_employer: 'Letter from Employer',
+};
+
+const getDocumentTypeLabel = (value) =>
+  (value && DOCUMENT_TYPE_LABELS[value]) || value || '—';
 
 // ----------------------------------------------------------------------
 
@@ -43,14 +63,27 @@ function formatDate(dateString) {
 
 // ----------------------------------------------------------------------
 
+function matchesSearch(row, query) {
+  if (!query || !query.trim()) return true;
+  const q = query.trim().toLowerCase();
+  const userStr = getDisplayName(row.user)?.toLowerCase() || '';
+  const email = (row.user?.email || '').toLowerCase();
+  const patient = (row.patientName || '').toLowerCase();
+  return userStr.includes(q) || email.includes(q) || patient.includes(q);
+}
+
 export function RefundRequestsView() {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState(null);
   const [processingAction, setProcessingAction] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmPayload, setConfirmPayload] = useState(null);
+  const [documentsBill, setDocumentsBill] = useState(null);
+
+  const filteredList = list.filter((row) => matchesSearch(row, searchQuery));
 
   const fetchList = useCallback(async () => {
     try {
@@ -117,10 +150,21 @@ export function RefundRequestsView() {
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={3}>
-        <Typography variant="h4">Refund Requests</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Bills where the user paid the flat fee and requested a refund. Approve or reject each request.
-        </Typography>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="h4">Refund Requests</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Bills where the user paid the flat fee and requested a refund. Approve or reject each request.
+            </Typography>
+          </Box>
+          <TextField
+            size="small"
+            placeholder="Search by user or patient name"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ minWidth: 300 }}
+          />
+        </Stack>
 
         <Card>
           {error && (
@@ -142,20 +186,23 @@ export function RefundRequestsView() {
                     <TableCell>Patient / Bill</TableCell>
                     <TableCell align="right">Bill amount</TableCell>
                     <TableCell>Requested at</TableCell>
+                    <TableCell>Documents</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {list.length === 0 ? (
+                  {filteredList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
-                          No refund requests at the moment.
+                          {list.length === 0
+                            ? 'No refund requests at the moment.'
+                            : 'No refund requests match your search.'}
                         </Typography>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    list.map((row) => {
+                    filteredList.map((row) => {
                       const bill = row;
                       const userId = bill.userId?.toString?.() || bill.userId;
                       const isProcessing =
@@ -195,6 +242,16 @@ export function RefundRequestsView() {
                             )}
                           </TableCell>
                           <TableCell>{formatDate(bill.refundRequestedAt)}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                              onClick={() => setDocumentsBill(bill)}
+                            >
+                              View PDF & docs
+                            </Button>
+                          </TableCell>
                           <TableCell align="right">
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
                               <Button
@@ -273,6 +330,85 @@ export function RefundRequestsView() {
             >
               {isApprove ? 'Approve refund' : 'Reject request'}
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Bill documents dialog: PDF + supporting documents (same as Bill Approval) */}
+        <Dialog
+          open={!!documentsBill}
+          onClose={() => setDocumentsBill(null)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            Bill documents
+            {documentsBill?.patientName && (
+              <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                — {documentsBill.patientName}
+              </Typography>
+            )}
+          </DialogTitle>
+          <DialogContent dividers>
+            {documentsBill && (
+              <Stack spacing={3}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Bill PDF
+                  </Typography>
+                  {documentsBill.pdfUrl ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      href={documentsBill.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                    >
+                      {documentsBill.pdfFileName || 'View bill PDF'}
+                    </Button>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No bill PDF uploaded.
+                    </Typography>
+                  )}
+                </Box>
+
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Supporting documents
+                    {documentsBill.supportingDocuments?.length > 0 &&
+                      ` (${documentsBill.supportingDocuments.length})`}
+                  </Typography>
+                  {!documentsBill.supportingDocuments?.length ? (
+                    <Typography variant="body2" color="text.secondary">
+                      No supporting documents.
+                    </Typography>
+                  ) : (
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {documentsBill.supportingDocuments.map((doc, idx) => (
+                        <Button
+                          key={doc._id || idx}
+                          size="small"
+                          variant="outlined"
+                          href={doc.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                        >
+                          {doc.documentType
+                            ? `${getDocumentTypeLabel(doc.documentType)}: `
+                            : ''}
+                          {doc.pdfFileName || `Document ${idx + 1}`}
+                        </Button>
+                      ))}
+                    </Stack>
+                  )}
+                </Box>
+              </Stack>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDocumentsBill(null)}>Close</Button>
           </DialogActions>
         </Dialog>
       </Stack>

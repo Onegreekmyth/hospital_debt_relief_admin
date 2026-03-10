@@ -11,6 +11,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
+import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -84,6 +85,15 @@ function getDisplayStatus(bill) {
   return bill.status || 'pending';
 }
 
+function matchesBillSearch(bill, query) {
+  if (!query || !String(query).trim()) return true;
+  const q = String(query).trim().toLowerCase();
+  const user = (bill.userDisplayName || '').toLowerCase();
+  const email = (bill.userEmail || '').toLowerCase();
+  const patient = (bill.patientName || '').toLowerCase();
+  return user.includes(q) || email.includes(q) || patient.includes(q);
+}
+
 // ----------------------------------------------------------------------
 
 export function PageTwoView() {
@@ -97,11 +107,17 @@ export function PageTwoView() {
   const [deletingBillId, setDeletingBillId] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredBills = useMemo(
+    () => bills.filter((bill) => matchesBillSearch(bill, searchQuery)),
+    [bills, searchQuery]
+  );
 
   const paginatedBills = useMemo(
     () =>
-      bills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
-    [bills, page, rowsPerPage]
+      filteredBills.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage),
+    [filteredBills, page, rowsPerPage]
   );
 
   const fetchBills = useCallback(async () => {
@@ -109,7 +125,7 @@ export function PageTwoView() {
       setLoading(true);
       setError(null);
       const response = await axios.get(endpoints.users.list, {
-        params: { page: 1, limit: 200 },
+        params: { page: 1, limit: 500 },
       });
       if (response.data.success && Array.isArray(response.data.data)) {
         setBills(flattenBills(response.data.data));
@@ -190,10 +206,24 @@ export function PageTwoView() {
     setPage(0);
   };
 
+  const handleChangeSearch = (event) => {
+    setSearchQuery(event.target.value);
+    setPage(0);
+  };
+
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={3}>
-        <Typography variant="h4">Hospital Bill Approval</Typography>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ flexWrap: 'wrap', gap: 2 }}>
+          <Typography variant="h4">Hospital Bill Approval</Typography>
+          <TextField
+            size="small"
+            placeholder="Search by user or patient name"
+            value={searchQuery}
+            onChange={handleChangeSearch}
+            sx={{ minWidth: 300 }}
+          />
+        </Stack>
 
         <Card>
           {error && (
@@ -366,10 +396,10 @@ export function PageTwoView() {
             </TableContainer>
           )}
 
-          {!loading && bills.length > 0 && (
+          {!loading && filteredBills.length > 0 && (
             <TablePagination
               component="div"
-              count={bills.length}
+              count={filteredBills.length}
               page={page}
               onPageChange={handleChangePage}
               rowsPerPage={rowsPerPage}

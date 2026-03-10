@@ -69,6 +69,9 @@ export const endpoints = {
     list: '/api/v1/admin/refund-requests',
     processRefund: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/refund`,
   },
+  analytics: {
+    stats: '/api/v1/admin/analytics',
+  },
   mail: {
     list: '/api/mail/list',
     details: '/api/mail/details',
