@@ -44,6 +44,7 @@ export const paths = {
   dashboard: {
     root: ROOTS.DASHBOARD,
     users: `${ROOTS.DASHBOARD}/users`,
+    subscriptions: `${ROOTS.DASHBOARD}/subscriptions`,
     two: `${ROOTS.DASHBOARD}/two`,
     three: `${ROOTS.DASHBOARD}/three`,
     refundRequests: `${ROOTS.DASHBOARD}/refund-requests`,

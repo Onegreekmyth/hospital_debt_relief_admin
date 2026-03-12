@@ -65,9 +65,15 @@ export const endpoints = {
     updateBillStatus: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/status`,
     deleteBill: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}`,
   },
+  subscriptions: {
+    list: '/api/v1/admin/users',
+  },
   refundRequests: {
     list: '/api/v1/admin/refund-requests',
     processRefund: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/refund`,
+  },
+  banner: {
+    current: '/api/v1/homepage/banner',
   },
   analytics: {
     stats: '/api/v1/admin/analytics',

@@ -48,6 +48,7 @@ export const navData = [
     items: [
       { title: 'Dashboard', path: paths.dashboard.root, icon: ICONS.dashboard },
       { title: 'Users', path: paths.dashboard.users, icon: ICONS.user },
+      { title: 'Subscriptions', path: paths.dashboard.subscriptions, icon: ICONS.analytics },
       { title: 'Bill Approval', path: paths.dashboard.two, icon: ICONS.ecommerce },
       { title: 'Refund Requests', path: paths.dashboard.refundRequests, icon: ICONS.banking },
       { title: 'Home page banner', path: paths.dashboard.banner, icon: ICONS.booking },

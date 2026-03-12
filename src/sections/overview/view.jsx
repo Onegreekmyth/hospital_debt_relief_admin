@@ -1,11 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
 
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from 'recharts';
+
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Grid from '@mui/material/Grid';
 import Skeleton from '@mui/material/Skeleton';
+import Divider from '@mui/material/Divider';
+import { useTheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
@@ -57,6 +74,9 @@ const DEFAULT_STATS = {
   approvedBills: 0,
   incompleteBills: 0,
   refundRequestCount: 0,
+  flatFeePaidBills: 0,
+  newUsersLast30Days: 0,
+  eligibilityRequestsCount: 0,
 };
 
 const PALETTE_KEYS_WITH_MAIN = ['primary', 'secondary', 'success', 'warning', 'error', 'info'];
@@ -117,8 +137,15 @@ function StatCard({ title, value, icon, color = 'primary' }) {
 // ----------------------------------------------------------------------
 
 export function OverviewView() {
+  const theme = useTheme();
   const [stats, setStats] = useState(DEFAULT_STATS);
   const [loading, setLoading] = useState(true);
+  const [charts, setCharts] = useState({
+    billsByStatus: [],
+    monthlyFlatFeeRevenue: [],
+    eligibilityByType: [],
+    subscriptionsByPlan: [],
+  });
 
   const fetchStats = useCallback(async () => {
     try {
@@ -128,7 +155,18 @@ export function OverviewView() {
       try {
         const res = await axios.get(endpoints.analytics.stats);
         if (res.data?.success && res.data?.data) {
-          nextStats = { ...DEFAULT_STATS, ...res.data.data };
+          const { totals, charts: chartPayload } = res.data.data;
+          if (totals) {
+            nextStats = { ...DEFAULT_STATS, ...totals };
+          }
+          if (chartPayload) {
+            setCharts({
+              billsByStatus: chartPayload.billsByStatus || [],
+              monthlyFlatFeeRevenue: chartPayload.monthlyFlatFeeRevenue || [],
+              eligibilityByType: chartPayload.eligibilityByType || [],
+              subscriptionsByPlan: chartPayload.subscriptionsByPlan || [],
+            });
+          }
         }
       } catch (err) {
         // Analytics API optional; we fill from users list below
@@ -289,8 +327,203 @@ export function OverviewView() {
               />
             )}
           </Grid>
+          <Grid item xs={12} sm={6} md={4} lg={3}>
+            {loading ? (
+              <Skeleton variant="rounded" height={120} />
+            ) : (
+              <StatCard
+                title="Flat-fee bills paid"
+                value={stats.flatFeePaidBills}
+                icon="solar:card-bold-duotone"
+                color="info"
+              />
+            )}
+          </Grid>
+          <Grid item xs={12} sm={6} md={4} lg={3}>
+            {loading ? (
+              <Skeleton variant="rounded" height={120} />
+            ) : (
+              <StatCard
+                title="New users (30 days)"
+                value={stats.newUsersLast30Days}
+                icon="solar:user-plus-rounded-bold-duotone"
+                color="success"
+              />
+            )}
+          </Grid>
+          <Grid item xs={12} sm={6} md={4} lg={3}>
+            {loading ? (
+              <Skeleton variant="rounded" height={120} />
+            ) : (
+              <StatCard
+                title="Eligibility checks"
+                value={stats.eligibilityRequestsCount}
+                icon="solar:chart-bold-duotone"
+                color="primary"
+              />
+            )}
+          </Grid>
+        </Grid>
+
+        <Divider />
+
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ p: 2.5, height: 360 }}>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Bills by status
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" height={280} />
+              ) : charts.billsByStatus.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No bill data available yet.
+                </Typography>
+              ) : (
+                <BarChartBasic
+                  data={charts.billsByStatus}
+                  xKey="status"
+                  yKey="count"
+                  color={theme.vars.palette.primary.main}
+                />
+              )}
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card sx={{ p: 2.5, height: 360 }}>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Monthly flat-fee revenue (estimated)
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" height={280} />
+              ) : charts.monthlyFlatFeeRevenue.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No flat-fee revenue yet.
+                </Typography>
+              ) : (
+                <LineChartBasic
+                  data={charts.monthlyFlatFeeRevenue}
+                  xKey="month"
+                  yKey="revenue"
+                  color={theme.vars.palette.success.main}
+                />
+              )}
+            </Card>
+          </Grid>
+        </Grid>
+
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Card sx={{ p: 2.5, height: 360 }}>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Eligibility outcomes
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" height={280} />
+              ) : charts.eligibilityByType.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No eligibility calculations yet.
+                </Typography>
+              ) : (
+                <DonutChartBasic
+                  data={charts.eligibilityByType}
+                  valueKey="count"
+                  labelKey="type"
+                />
+              )}
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card sx={{ p: 2.5, height: 360 }}>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Subscriptions by plan
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" height={280} />
+              ) : charts.subscriptionsByPlan.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No active subscriptions yet.
+                </Typography>
+              ) : (
+                <BarChartBasic
+                  data={charts.subscriptionsByPlan}
+                  xKey="planId"
+                  yKey="count"
+                  color={theme.vars.palette.info.main}
+                />
+              )}
+            </Card>
+          </Grid>
         </Grid>
       </Stack>
     </DashboardContent>
+  );
+}
+
+// ----------------------------------------------------------------------
+// Lightweight chart wrappers using Recharts
+// ----------------------------------------------------------------------
+
+function BarChartBasic({ data, xKey, yKey, color }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, bottom: 24, left: 0 }}>
+        <XAxis dataKey={xKey} tick={{ fontSize: 12 }} />
+        <YAxis tick={{ fontSize: 12 }} />
+        <Tooltip />
+        <Bar dataKey={yKey} fill={color} radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function LineChartBasic({ data, xKey, yKey, color }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 8, right: 16, bottom: 24, left: 0 }}>
+        <XAxis dataKey={xKey} tick={{ fontSize: 12 }} />
+        <YAxis tick={{ fontSize: 12 }} />
+        <Tooltip />
+        <Line
+          type="monotone"
+          dataKey={yKey}
+          stroke={color}
+          strokeWidth={2}
+          dot={{ r: 3 }}
+          activeDot={{ r: 5 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#B455FF', '#FF6699'];
+
+function DonutChartBasic({ data, valueKey, labelKey }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey={valueKey}
+          nameKey={labelKey}
+          innerRadius="55%"
+          outerRadius="80%"
+          paddingAngle={3}
+        >
+          {data.map((entry, index) => (
+            <Cell
+              // eslint-disable-next-line react/no-array-index-key
+              key={`slice-${entry[labelKey] || index}`}
+              fill={PIE_COLORS[index % PIE_COLORS.length]}
+            />
+          ))}
+        </Pie>
+        <Tooltip />
+        <Legend />
+      </PieChart>
+    </ResponsiveContainer>
   );
 }

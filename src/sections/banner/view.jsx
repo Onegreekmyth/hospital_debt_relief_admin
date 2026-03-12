@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -9,12 +9,13 @@ import Alert from '@mui/material/Alert';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
+import axios, { endpoints } from 'src/utils/axios';
 
 // ----------------------------------------------------------------------
 
-const REQUIRED_WIDTH = 1920;
-const REQUIRED_HEIGHT = 1080;
-const REQUIRED_DIMENSIONS_TEXT = `${REQUIRED_WIDTH} × ${REQUIRED_HEIGHT} px`;
+const MIN_WIDTH = 1280;
+const MIN_HEIGHT = 720;
+const REQUIRED_DIMENSIONS_TEXT = `16:9 aspect ratio (at least ${MIN_WIDTH} × ${MIN_HEIGHT} px)`;
 const ACCEPT_IMAGES = 'image/jpeg,image/png,image/webp,image/gif';
 
 function getImageDimensions(src) {
@@ -33,11 +34,39 @@ export function BannerView() {
   const [isDragging, setIsDragging] = useState(false);
   const [message, setMessage] = useState(null);
   const [checkingDimensions, setCheckingDimensions] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Load current banner for preview
+  useEffect(() => {
+    let active = true;
+    const fetchCurrent = async () => {
+      try {
+        const res = await axios.get(endpoints.banner.current);
+        if (!active) return;
+        if (res.data?.success && res.data?.data?.imageUrl) {
+          setPreviewUrl(res.data.data.imageUrl);
+          if (res.data.data.width && res.data.data.height) {
+            setImageDimensions({
+              width: res.data.data.width,
+              height: res.data.data.height,
+            });
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load current banner:', err);
+      }
+    };
+    fetchCurrent();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const dimensionsValid =
     imageDimensions &&
-    imageDimensions.width === REQUIRED_WIDTH &&
-    imageDimensions.height === REQUIRED_HEIGHT;
+    imageDimensions.width >= MIN_WIDTH &&
+    imageDimensions.height >= MIN_HEIGHT;
 
   const clearPreview = useCallback(() => {
     if (previewUrl) {
@@ -62,11 +91,13 @@ export function BannerView() {
       try {
         const dims = await getImageDimensions(url);
         setImageDimensions(dims);
-        if (dims.width !== REQUIRED_WIDTH || dims.height !== REQUIRED_HEIGHT) {
+        if (dims.width < MIN_WIDTH || dims.height < MIN_HEIGHT) {
           setMessage({
-            type: 'error',
-            text: `Image must be exactly ${REQUIRED_DIMENSIONS_TEXT}. Current size: ${dims.width} × ${dims.height} px.`,
+            type: 'warning',
+            text: `For best results, use an image at least ${MIN_WIDTH} × ${MIN_HEIGHT} px. Current size: ${dims.width} × ${dims.height} px.`,
           });
+        } else {
+          setMessage(null);
         }
       } catch {
         setMessage({ type: 'error', text: 'Could not read image dimensions.' });
@@ -101,11 +132,49 @@ export function BannerView() {
 
   const handleSave = () => {
     if (!file || !dimensionsValid) {
-      setMessage({ type: 'info', text: 'Select an image with dimensions 1920 × 1080 px.' });
+      setMessage({
+        type: 'info',
+        text: 'Select an image with a 16:9 aspect ratio and at least 1280 × 720 px.',
+      });
       return;
     }
-    // API will be connected later
-    setMessage({ type: 'info', text: 'Upload will be connected to the API later.' });
+
+    const formData = new FormData();
+    formData.append('image', file);
+    if (imageDimensions?.width) formData.append('width', String(imageDimensions.width));
+    if (imageDimensions?.height) formData.append('height', String(imageDimensions.height));
+
+    setSaving(true);
+    axios
+      .post(endpoints.banner.current, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((res) => {
+        if (res.data?.success) {
+          setMessage({ type: 'success', text: 'Banner updated successfully.' });
+          if (res.data.data?.imageUrl) {
+            setPreviewUrl(res.data.data.imageUrl);
+          }
+        } else {
+          setMessage({
+            type: 'error',
+            text: res.data?.message || 'Failed to upload banner. Please try again.',
+          });
+        }
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error('Upload banner error:', err);
+        const text =
+          err?.error ||
+          err?.message ||
+          err?.response?.data?.message ||
+          'Failed to upload banner. Please try again.';
+        setMessage({ type: 'error', text });
+      })
+      .finally(() => {
+        setSaving(false);
+      });
   };
 
   const handleRemove = () => {
@@ -185,9 +254,11 @@ export function BannerView() {
               <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
                 <Typography variant="subtitle2">Preview</Typography>
                 {imageDimensions && (
-                  <Typography variant="caption" color={dimensionsValid ? 'success.main' : 'error.main'}>
+                  <Typography variant="caption" color={dimensionsValid ? 'success.main' : 'warning.main'}>
                     {imageDimensions.width} × {imageDimensions.height} px
-                    {dimensionsValid ? ' — Valid' : ' — Must be 1920 × 1080'}
+                    {dimensionsValid
+                      ? ' — Good for banner'
+                      : ' — Consider a 16:9 image for best fit'}
                   </Typography>
                 )}
                 {checkingDimensions && (
@@ -227,12 +298,12 @@ export function BannerView() {
                 <Button
                   variant="contained"
                   onClick={handleSave}
-                  disabled={!dimensionsValid || checkingDimensions}
+                  disabled={!dimensionsValid || checkingDimensions || saving}
                   startIcon={<Iconify icon="solar:upload-bold-duotone" />}
                 >
                   Upload banner
                 </Button>
-                <Button variant="outlined" color="inherit" onClick={handleRemove}>
+                <Button variant="outlined" color="inherit" onClick={handleRemove} disabled={saving}>
                   Remove
                 </Button>
               </Stack>
@@ -241,8 +312,8 @@ export function BannerView() {
         </Card>
 
         <Alert severity="info" variant="soft">
-          API integration will be added later. Use this page to select and preview the banner image;
-          the upload button will be connected to the backend when ready.
+          Banner images work best at a 16:9 ratio (for example 1920 × 1080 px). Larger 16:9 images will
+          be scaled to fill the hero background.
         </Alert>
       </Stack>
     </DashboardContent>
