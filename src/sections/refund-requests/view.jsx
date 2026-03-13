@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -18,6 +18,12 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
@@ -82,8 +88,21 @@ export function RefundRequestsView() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmPayload, setConfirmPayload] = useState(null);
   const [documentsBill, setDocumentsBill] = useState(null);
+  const [docViewTab, setDocViewTab] = useState(0);
+  const [sortBy, setSortBy] = useState('dateDesc'); // dateDesc | dateAsc
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewBlobUrlRef = useRef(null);
 
-  const filteredList = list.filter((row) => matchesSearch(row, searchQuery));
+  const filteredList = useMemo(() => {
+    let result = list.filter((row) => matchesSearch(row, searchQuery));
+    result = [...result].sort((a, b) => {
+      const da = new Date(a.refundRequestedAt || 0);
+      const db = new Date(b.refundRequestedAt || 0);
+      return sortBy === 'dateDesc' ? db - da : da - db;
+    });
+    return result;
+  }, [list, searchQuery, sortBy]);
 
   const fetchList = useCallback(async () => {
     try {
@@ -107,6 +126,49 @@ export function RefundRequestsView() {
   useEffect(() => {
     fetchList();
   }, [fetchList]);
+
+  // Load document preview (blob URL) for inline viewing when dialog opens or tab changes
+  useEffect(() => {
+    if (!documentsBill) {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+      setPreviewBlobUrl(null);
+      setPreviewLoading(false);
+      return;
+    }
+    const key =
+      docViewTab === 0
+        ? documentsBill.pdfKey
+        : documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfKey;
+    if (!key) {
+      setPreviewBlobUrl(null);
+      setPreviewLoading(false);
+      return;
+    }
+    if (previewBlobUrlRef.current) {
+      URL.revokeObjectURL(previewBlobUrlRef.current);
+      previewBlobUrlRef.current = null;
+    }
+    setPreviewBlobUrl(null);
+    setPreviewLoading(true);
+    axios
+      .get(endpoints.documents.preview(key), { responseType: 'blob' })
+      .then((res) => {
+        const url = URL.createObjectURL(res.data);
+        previewBlobUrlRef.current = url;
+        setPreviewBlobUrl(url);
+      })
+      .catch(() => setPreviewBlobUrl(null))
+      .finally(() => setPreviewLoading(false));
+    return () => {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+    };
+  }, [documentsBill, docViewTab]);
 
   const openConfirm = (userId, bill, action) => {
     setConfirmPayload({ userId, billId: bill._id, bill, action });
@@ -162,8 +224,19 @@ export function RefundRequestsView() {
             placeholder="Search by user or patient name"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ minWidth: 300 }}
+            sx={{ minWidth: 220 }}
           />
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Sort by</InputLabel>
+            <Select
+              value={sortBy}
+              label="Sort by"
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <MenuItem value="dateDesc">Newest first</MenuItem>
+              <MenuItem value="dateAsc">Oldest first</MenuItem>
+            </Select>
+          </FormControl>
         </Stack>
 
         <Card>
@@ -247,7 +320,10 @@ export function RefundRequestsView() {
                               size="small"
                               variant="outlined"
                               startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                              onClick={() => setDocumentsBill(bill)}
+                              onClick={() => {
+                                setDocumentsBill(bill);
+                                setDocViewTab(0);
+                              }}
                             >
                               View PDF & docs
                             </Button>
@@ -333,75 +409,116 @@ export function RefundRequestsView() {
           </DialogActions>
         </Dialog>
 
-        {/* Bill documents dialog: PDF + supporting documents (same as Bill Approval) */}
+        {/* Bill documents dialog: view in dashboard (inline PDF) + download */}
         <Dialog
           open={!!documentsBill}
           onClose={() => setDocumentsBill(null)}
-          maxWidth="sm"
+          maxWidth="lg"
           fullWidth
+          PaperProps={{ sx: { minHeight: '80vh' } }}
         >
           <DialogTitle>
-            Bill documents
+            Bill documents — view in dashboard
             {documentsBill?.patientName && (
               <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                — {documentsBill.patientName}
+                {documentsBill.patientName}
               </Typography>
             )}
           </DialogTitle>
           <DialogContent dividers>
             {documentsBill && (
-              <Stack spacing={3}>
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Bill PDF
-                  </Typography>
-                  {documentsBill.pdfUrl ? (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      href={documentsBill.pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                    >
-                      {documentsBill.pdfFileName || 'View bill PDF'}
-                    </Button>
-                  ) : (
+              <Stack spacing={2}>
+                <Tabs
+                  value={docViewTab}
+                  onChange={(_, v) => setDocViewTab(v)}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 48 }}
+                >
+                  <Tab
+                    label={documentsBill.pdfUrl ? 'Bill PDF' : 'Bill PDF (none)'}
+                    id="refund-doc-tab-0"
+                    aria-controls="refund-doc-panel-0"
+                  />
+                  {(documentsBill.supportingDocuments || []).map((doc, idx) => (
+                    <Tab
+                      key={doc._id || idx}
+                      label={
+                        doc.documentType
+                          ? getDocumentTypeLabel(doc.documentType)
+                          : `Document ${idx + 1}`
+                      }
+                      id={`refund-doc-tab-${idx + 1}`}
+                      aria-controls={`refund-doc-panel-${idx + 1}`}
+                    />
+                  ))}
+                </Tabs>
+
+                <Box sx={{ flex: 1, minHeight: 480, display: 'flex', flexDirection: 'column' }}>
+                  {docViewTab === 0 && !documentsBill.pdfKey ? (
                     <Typography variant="body2" color="text.secondary">
                       No bill PDF uploaded.
                     </Typography>
-                  )}
-                </Box>
-
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Supporting documents
-                    {documentsBill.supportingDocuments?.length > 0 &&
-                      ` (${documentsBill.supportingDocuments.length})`}
-                  </Typography>
-                  {!documentsBill.supportingDocuments?.length ? (
+                  ) : docViewTab > 0 && !documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfKey ? (
                     <Typography variant="body2" color="text.secondary">
-                      No supporting documents.
+                      No document.
                     </Typography>
                   ) : (
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {documentsBill.supportingDocuments.map((doc, idx) => (
-                        <Button
-                          key={doc._id || idx}
-                          size="small"
-                          variant="outlined"
-                          href={doc.pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                        >
-                          {doc.documentType
-                            ? `${getDocumentTypeLabel(doc.documentType)}: `
-                            : ''}
-                          {doc.pdfFileName || `Document ${idx + 1}`}
-                        </Button>
-                      ))}
-                    </Stack>
+                    <>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                        {docViewTab === 0 ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            href={documentsBill.pdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                          >
+                            Download bill PDF
+                          </Button>
+                        ) : (
+                          (() => {
+                            const doc = documentsBill.supportingDocuments[docViewTab - 1];
+                            return (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                href={doc?.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                              >
+                                Download {doc?.documentType ? getDocumentTypeLabel(doc.documentType) : 'document'}
+                              </Button>
+                            );
+                          })()
+                        )}
+                      </Stack>
+                      {previewLoading ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 440 }}>
+                          <CircularProgress />
+                        </Box>
+                      ) : previewBlobUrl ? (
+                        <Box
+                          component="iframe"
+                          src={previewBlobUrl}
+                          title={docViewTab === 0 ? 'Bill PDF' : documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfFileName || 'Document'}
+                          sx={{
+                            flex: 1,
+                            width: '100%',
+                            minHeight: 440,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                          }}
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          Could not load preview.
+                        </Typography>
+                      )}
+                    </>
                   )}
                 </Box>
               </Stack>

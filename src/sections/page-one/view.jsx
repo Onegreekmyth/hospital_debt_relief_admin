@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -26,6 +26,12 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import Tooltip from '@mui/material/Tooltip';
 import Badge from '@mui/material/Badge';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
@@ -66,10 +72,17 @@ export function PageOneView() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
+  const [verifiedFilter, setVerifiedFilter] = useState('all'); // 'all' | 'verified' | 'unverified'
+  const [sortBy, setSortBy] = useState('createdAtDesc'); // createdAtDesc | createdAtAsc | nameAsc | nameDesc
   const [billFiles, setBillFiles] = useState({});
   const [uploading, setUploading] = useState({});
   const [uploadSuccess, setUploadSuccess] = useState({});
   const [uploadError, setUploadError] = useState({});
+  const [documentsBill, setDocumentsBill] = useState(null);
+  const [docViewTab, setDocViewTab] = useState(0);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewBlobUrlRef = useRef(null);
 
   const isViewMode = dialogMode === 'view';
 
@@ -84,6 +97,9 @@ export function PageOneView() {
             page: page + 1,
             limit: rowsPerPage,
             search: searchQuery,
+            ...(verifiedFilter === 'verified' && { isVerified: 'true' }),
+            ...(verifiedFilter === 'unverified' && { isVerified: 'false' }),
+            sortBy,
           },
         });
 
@@ -105,7 +121,50 @@ export function PageOneView() {
     }, searchQuery ? 500 : 0);
 
     return () => clearTimeout(timeoutId);
-  }, [page, rowsPerPage, searchQuery]);
+  }, [page, rowsPerPage, searchQuery, verifiedFilter, sortBy]);
+
+  // Load document preview (blob URL) for inline viewing when document viewer opens or tab changes
+  useEffect(() => {
+    if (!documentsBill) {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+      setPreviewBlobUrl(null);
+      setPreviewLoading(false);
+      return;
+    }
+    const key =
+      docViewTab === 0
+        ? documentsBill.pdfKey
+        : documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfKey;
+    if (!key) {
+      setPreviewBlobUrl(null);
+      setPreviewLoading(false);
+      return;
+    }
+    if (previewBlobUrlRef.current) {
+      URL.revokeObjectURL(previewBlobUrlRef.current);
+      previewBlobUrlRef.current = null;
+    }
+    setPreviewBlobUrl(null);
+    setPreviewLoading(true);
+    axios
+      .get(endpoints.documents.preview(key), { responseType: 'blob' })
+      .then((res) => {
+        const url = URL.createObjectURL(res.data);
+        previewBlobUrlRef.current = url;
+        setPreviewBlobUrl(url);
+      })
+      .catch(() => setPreviewBlobUrl(null))
+      .finally(() => setPreviewLoading(false));
+    return () => {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+    };
+  }, [documentsBill, docViewTab]);
 
   const handleOpenDialog = (mode, row = null) => {
     setDialogMode(mode);
@@ -135,6 +194,7 @@ export function PageOneView() {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setCurrentRow(null);
+    setDocumentsBill(null);
   };
 
   const handleChangeField = (field) => (event) => {
@@ -285,16 +345,49 @@ export function PageOneView() {
 
   return (
     <DashboardContent maxWidth="xl">
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4">Users</Typography>
 
-        <TextField
-          size="small"
-          placeholder="Search by name or email"
-          value={searchQuery}
-          onChange={handleChangeSearch}
-          sx={{ minWidth: 300 }}
-        />
+        <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={2}>
+          <TextField
+            size="small"
+            placeholder="Search by name or email"
+            value={searchQuery}
+            onChange={handleChangeSearch}
+            sx={{ minWidth: 220 }}
+          />
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel>Filter</InputLabel>
+            <Select
+              value={verifiedFilter}
+              label="Filter"
+              onChange={(e) => {
+                setVerifiedFilter(e.target.value);
+                setPage(0);
+              }}
+            >
+              <MenuItem value="all">All users</MenuItem>
+              <MenuItem value="verified">Verified only</MenuItem>
+              <MenuItem value="unverified">Unverified only</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>Sort by</InputLabel>
+            <Select
+              value={sortBy}
+              label="Sort by"
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setPage(0);
+              }}
+            >
+              <MenuItem value="createdAtDesc">Newest first</MenuItem>
+              <MenuItem value="createdAtAsc">Oldest first</MenuItem>
+              <MenuItem value="nameAsc">Name (A–Z)</MenuItem>
+              <MenuItem value="nameDesc">Name (Z–A)</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
       </Stack>
 
       {error && (
@@ -725,21 +818,38 @@ export function PageOneView() {
                             {bill.submittedAt ? formatDate(bill.submittedAt) : formatDate(bill.createdAt)}
                           </Typography>
                         </Box>
-                        {bill.pdfUrl && (
+                        {(bill.pdfUrl || bill.pdfKey) && (
                           <Box>
                             <Typography variant="caption" color="text.secondary">
                               Bill PDF
                             </Typography>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              href={bill.pdfUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                            >
-                              View PDF
-                            </Button>
+                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                              {bill.pdfKey && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                                  onClick={() => {
+                                    setDocumentsBill(bill);
+                                    setDocViewTab(0);
+                                  }}
+                                >
+                                  View in dashboard
+                                </Button>
+                              )}
+                              {bill.pdfUrl && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  href={bill.pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                                >
+                                  Download
+                                </Button>
+                              )}
+                            </Stack>
                           </Box>
                         )}
                         {bill.supportingDocuments && bill.supportingDocuments.length > 0 && (
@@ -754,16 +864,33 @@ export function PageOneView() {
                                   : null;
                                 return (
                                   <Box key={docIndex} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.25 }}>
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      href={doc.pdfUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                                    >
-                                      {doc.pdfFileName || `Document ${docIndex + 1}`}
-                                    </Button>
+                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                      {doc.pdfKey && (
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          startIcon={<Iconify icon="solar:document-bold-duotone" />}
+                                          onClick={() => {
+                                            setDocumentsBill(bill);
+                                            setDocViewTab(docIndex + 1);
+                                          }}
+                                        >
+                                          View in dashboard
+                                        </Button>
+                                      )}
+                                      {doc.pdfUrl && (
+                                        <Button
+                                          size="small"
+                                          variant="outlined"
+                                          href={doc.pdfUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                                        >
+                                          Download
+                                        </Button>
+                                      )}
+                                    </Stack>
                                     {typeLabel && (
                                       <Typography variant="caption" color="text.secondary">
                                         Type: {typeLabel}
@@ -786,6 +913,126 @@ export function PageOneView() {
 
         <DialogActions>
           <Button onClick={handleCloseDialog}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Document viewer: view bill PDF and supporting docs inline (same as Bill Approval) */}
+      <Dialog
+        open={!!documentsBill}
+        onClose={() => setDocumentsBill(null)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{ sx: { minHeight: '80vh' } }}
+      >
+        <DialogTitle>
+          Bill documents — view in dashboard
+          {documentsBill?.patientName && (
+            <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+              {documentsBill.patientName}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent dividers>
+          {documentsBill && (
+            <Stack spacing={2}>
+              <Tabs
+                value={docViewTab}
+                onChange={(_, v) => setDocViewTab(v)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 48 }}
+              >
+                <Tab
+                  label={documentsBill.pdfKey ? 'Bill PDF' : 'Bill PDF (none)'}
+                  id="user-doc-tab-0"
+                  aria-controls="user-doc-panel-0"
+                />
+                {(documentsBill.supportingDocuments || []).map((doc, idx) => (
+                  <Tab
+                    key={doc._id || idx}
+                    label={
+                      doc.documentType
+                        ? getDocumentTypeLabel(doc.documentType)
+                        : `Document ${idx + 1}`
+                    }
+                    id={`user-doc-tab-${idx + 1}`}
+                    aria-controls={`user-doc-panel-${idx + 1}`}
+                  />
+                ))}
+              </Tabs>
+
+              <Box sx={{ flex: 1, minHeight: 480, display: 'flex', flexDirection: 'column' }}>
+                {docViewTab === 0 && !documentsBill.pdfKey ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No bill PDF uploaded.
+                  </Typography>
+                ) : docViewTab > 0 && !documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfKey ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No document.
+                  </Typography>
+                ) : (
+                  <>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                      {docViewTab === 0 ? (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          href={documentsBill.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                        >
+                          Download bill PDF
+                        </Button>
+                      ) : (
+                        (() => {
+                          const doc = documentsBill.supportingDocuments[docViewTab - 1];
+                          return (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              href={doc?.pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                            >
+                              Download {doc?.documentType ? getDocumentTypeLabel(doc.documentType) : 'document'}
+                            </Button>
+                          );
+                        })()
+                      )}
+                    </Stack>
+                    {previewLoading ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 440 }}>
+                        <CircularProgress />
+                      </Box>
+                    ) : previewBlobUrl ? (
+                      <Box
+                        component="iframe"
+                        src={previewBlobUrl}
+                        title={docViewTab === 0 ? 'Bill PDF' : documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfFileName || 'Document'}
+                        sx={{
+                          flex: 1,
+                          width: '100%',
+                          minHeight: 440,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                        }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Could not load preview.
+                      </Typography>
+                    )}
+                  </>
+                )}
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDocumentsBill(null)}>Close</Button>
         </DialogActions>
       </Dialog>
     </DashboardContent>

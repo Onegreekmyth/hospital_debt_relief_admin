@@ -65,6 +65,9 @@ export const endpoints = {
     updateBillStatus: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/status`,
     deleteBill: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}`,
   },
+  documents: {
+    preview: (key) => `/api/v1/admin/documents/preview?key=${encodeURIComponent(key)}`,
+  },
   subscriptions: {
     list: '/api/v1/admin/users',
   },

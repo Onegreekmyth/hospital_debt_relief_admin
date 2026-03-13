@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -20,6 +20,12 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
@@ -94,6 +100,58 @@ function matchesBillSearch(bill, query) {
   return user.includes(q) || email.includes(q) || patient.includes(q);
 }
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'submitted', label: 'Submitted' },
+  { value: 'processing', label: 'Processing' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'inactive', label: 'Incomplete' },
+];
+
+const SORT_OPTIONS = [
+  { value: 'dateDesc', label: 'Date (newest first)' },
+  { value: 'dateAsc', label: 'Date (oldest first)' },
+  { value: 'amountDesc', label: 'Amount (high to low)' },
+  { value: 'amountAsc', label: 'Amount (low to high)' },
+  { value: 'userAsc', label: 'User (A–Z)' },
+  { value: 'userDesc', label: 'User (Z–A)' },
+];
+
+function filterByStatus(bill, statusFilter) {
+  if (!statusFilter || statusFilter === 'all') return true;
+  const s = (bill.status || '').toLowerCase();
+  return s === statusFilter.toLowerCase();
+}
+
+function sortBills(list, sortBy) {
+  const arr = [...list];
+  switch (sortBy) {
+    case 'dateDesc':
+      arr.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      break;
+    case 'dateAsc':
+      arr.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      break;
+    case 'amountDesc':
+      arr.sort((a, b) => (Number(b.revisedAmount ?? b.billAmount ?? 0) - Number(a.revisedAmount ?? a.billAmount ?? 0)));
+      break;
+    case 'amountAsc':
+      arr.sort((a, b) => (Number(a.revisedAmount ?? a.billAmount ?? 0) - Number(b.revisedAmount ?? b.billAmount ?? 0)));
+      break;
+    case 'userAsc':
+      arr.sort((a, b) => (a.userDisplayName || '').localeCompare(b.userDisplayName || ''));
+      break;
+    case 'userDesc':
+      arr.sort((a, b) => (b.userDisplayName || '').localeCompare(a.userDisplayName || ''));
+      break;
+    default:
+      break;
+  }
+  return arr;
+}
+
 // ----------------------------------------------------------------------
 
 export function PageTwoView() {
@@ -108,11 +166,18 @@ export function PageTwoView() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('dateDesc');
+  const [docViewTab, setDocViewTab] = useState(0); // 0 = bill PDF, 1+ = supporting doc index
+  const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewBlobUrlRef = useRef(null);
 
-  const filteredBills = useMemo(
-    () => bills.filter((bill) => matchesBillSearch(bill, searchQuery)),
-    [bills, searchQuery]
-  );
+  const filteredBills = useMemo(() => {
+    let list = bills.filter((bill) => matchesBillSearch(bill, searchQuery));
+    list = list.filter((bill) => filterByStatus(bill, statusFilter));
+    return sortBills(list, sortBy);
+  }, [bills, searchQuery, statusFilter, sortBy]);
 
   const paginatedBills = useMemo(
     () =>
@@ -144,6 +209,49 @@ export function PageTwoView() {
   useEffect(() => {
     fetchBills();
   }, [fetchBills]);
+
+  // Load document preview (blob URL) for inline viewing when dialog opens or tab changes
+  useEffect(() => {
+    if (!documentsBill) {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+      setPreviewBlobUrl(null);
+      setPreviewLoading(false);
+      return;
+    }
+    const key =
+      docViewTab === 0
+        ? documentsBill.pdfKey
+        : documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfKey;
+    if (!key) {
+      setPreviewBlobUrl(null);
+      setPreviewLoading(false);
+      return;
+    }
+    if (previewBlobUrlRef.current) {
+      URL.revokeObjectURL(previewBlobUrlRef.current);
+      previewBlobUrlRef.current = null;
+    }
+    setPreviewBlobUrl(null);
+    setPreviewLoading(true);
+    axios
+      .get(endpoints.documents.preview(key), { responseType: 'blob' })
+      .then((res) => {
+        const url = URL.createObjectURL(res.data);
+        previewBlobUrlRef.current = url;
+        setPreviewBlobUrl(url);
+      })
+      .catch(() => setPreviewBlobUrl(null))
+      .finally(() => setPreviewLoading(false));
+    return () => {
+      if (previewBlobUrlRef.current) {
+        URL.revokeObjectURL(previewBlobUrlRef.current);
+        previewBlobUrlRef.current = null;
+      }
+    };
+  }, [documentsBill, docViewTab]);
 
   const updateStatus = async (userId, billId, status) => {
     if (!userId || !billId) return;
@@ -216,13 +324,49 @@ export function PageTwoView() {
       <Stack spacing={3}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h4">Hospital Bill Approval</Typography>
-          <TextField
-            size="small"
-            placeholder="Search by user or patient name"
-            value={searchQuery}
-            onChange={handleChangeSearch}
-            sx={{ minWidth: 300 }}
-          />
+          <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={2}>
+            <TextField
+              size="small"
+              placeholder="Search by user or patient name"
+              value={searchQuery}
+              onChange={handleChangeSearch}
+              sx={{ minWidth: 220 }}
+            />
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Status"
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(0);
+                }}
+              >
+                {STATUS_FILTER_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Sort by</InputLabel>
+              <Select
+                value={sortBy}
+                label="Sort by"
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(0);
+                }}
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
         </Stack>
 
         <Card>
@@ -311,7 +455,10 @@ export function PageTwoView() {
                               size="small"
                               variant="outlined"
                               startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                              onClick={() => setDocumentsBill(bill)}
+                              onClick={() => {
+                                setDocumentsBill(bill);
+                                setDocViewTab(0);
+                              }}
                             >
                               View PDF & docs
                             </Button>
@@ -409,75 +556,116 @@ export function PageTwoView() {
           )}
         </Card>
 
-        {/* Documents dialog: Bill PDF + Supporting documents */}
+        {/* Documents dialog: Inline viewer + tabs for Bill PDF and supporting docs */}
         <Dialog
           open={!!documentsBill}
           onClose={() => setDocumentsBill(null)}
-          maxWidth="sm"
+          maxWidth="lg"
           fullWidth
+          PaperProps={{ sx: { minHeight: '80vh' } }}
         >
           <DialogTitle>
-            Bill documents
+            Bill documents — view in dashboard
             {documentsBill?.patientName && (
               <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                — {documentsBill.patientName}
+                {documentsBill.patientName}
               </Typography>
             )}
           </DialogTitle>
           <DialogContent dividers>
             {documentsBill && (
-              <Stack spacing={3}>
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Bill PDF
-                  </Typography>
-                  {documentsBill.pdfUrl ? (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      href={documentsBill.pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                    >
-                      {documentsBill.pdfFileName || 'View bill PDF'}
-                    </Button>
-                  ) : (
+              <Stack spacing={2}>
+                <Tabs
+                  value={docViewTab}
+                  onChange={(_, v) => setDocViewTab(v)}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 48 }}
+                >
+                  <Tab
+                    label={documentsBill.pdfUrl ? 'Bill PDF' : 'Bill PDF (none)'}
+                    id="doc-tab-0"
+                    aria-controls="doc-panel-0"
+                  />
+                  {(documentsBill.supportingDocuments || []).map((doc, idx) => (
+                    <Tab
+                      key={doc._id || idx}
+                      label={
+                        doc.documentType
+                          ? getDocumentTypeLabel(doc.documentType)
+                          : `Document ${idx + 1}`
+                      }
+                      id={`doc-tab-${idx + 1}`}
+                      aria-controls={`doc-panel-${idx + 1}`}
+                    />
+                  ))}
+                </Tabs>
+
+                <Box sx={{ flex: 1, minHeight: 480, display: 'flex', flexDirection: 'column' }}>
+                  {docViewTab === 0 && !documentsBill.pdfKey ? (
                     <Typography variant="body2" color="text.secondary">
                       No bill PDF uploaded.
                     </Typography>
-                  )}
-                </Box>
-
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Supporting documents
-                    {documentsBill.supportingDocuments?.length > 0 &&
-                      ` (${documentsBill.supportingDocuments.length})`}
-                  </Typography>
-                  {!documentsBill.supportingDocuments?.length ? (
+                  ) : docViewTab > 0 && !documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfKey ? (
                     <Typography variant="body2" color="text.secondary">
-                      No supporting documents.
+                      No document.
                     </Typography>
                   ) : (
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {documentsBill.supportingDocuments.map((doc, idx) => (
-                        <Button
-                          key={doc._id || idx}
-                          size="small"
-                          variant="outlined"
-                          href={doc.pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          startIcon={<Iconify icon="solar:document-bold-duotone" />}
-                        >
-                          {doc.documentType
-                            ? `${getDocumentTypeLabel(doc.documentType)}: `
-                            : ''}
-                          {doc.pdfFileName || `Document ${idx + 1}`}
-                        </Button>
-                      ))}
-                    </Stack>
+                    <>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                        {docViewTab === 0 ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            href={documentsBill.pdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                          >
+                            Download bill PDF
+                          </Button>
+                        ) : (
+                          (() => {
+                            const doc = documentsBill.supportingDocuments[docViewTab - 1];
+                            return (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                href={doc?.pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                              >
+                                Download {doc?.documentType ? getDocumentTypeLabel(doc.documentType) : 'document'}
+                              </Button>
+                            );
+                          })()
+                        )}
+                      </Stack>
+                      {previewLoading ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 440 }}>
+                          <CircularProgress />
+                        </Box>
+                      ) : previewBlobUrl ? (
+                        <Box
+                          component="iframe"
+                          src={previewBlobUrl}
+                          title={docViewTab === 0 ? 'Bill PDF' : documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfFileName || 'Document'}
+                          sx={{
+                            flex: 1,
+                            width: '100%',
+                            minHeight: 440,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 1,
+                          }}
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          Could not load preview.
+                        </Typography>
+                      )}
+                    </>
                   )}
                 </Box>
               </Stack>
