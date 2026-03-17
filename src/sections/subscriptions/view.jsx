@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import TextField from '@mui/material/TextField';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import axios, { endpoints } from 'src/utils/axios';
@@ -38,6 +39,7 @@ export function SubscriptionsView() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -49,6 +51,7 @@ export function SubscriptionsView() {
             page: page + 1,
             limit: rowsPerPage,
             subscriptionStatus: tab,
+            search: searchQuery,
           },
         });
         if (res.data?.success) {
@@ -64,7 +67,17 @@ export function SubscriptionsView() {
                   if (tab === 'cancelled') return status === 'cancelled';
                   return true;
                 });
-          setRows(filtered);
+          const safetySearch = searchQuery?.trim().toLowerCase();
+          setRows(
+            safetySearch
+              ? filtered.filter((user) => {
+                  const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ').toLowerCase();
+                  const email = (user?.email || '').toLowerCase();
+                  const planId = (user?.subscription?.planId || '').toLowerCase();
+                  return name.includes(safetySearch) || email.includes(safetySearch) || planId.includes(safetySearch);
+                })
+              : filtered
+          );
           setTotal(res.data.pagination?.total ?? filtered.length);
         }
       } catch (err) {
@@ -81,7 +94,7 @@ export function SubscriptionsView() {
       }
     };
     fetchData();
-  }, [tab, page, rowsPerPage]);
+  }, [tab, page, rowsPerPage, searchQuery]);
 
   const handleChangeTab = (event, value) => {
     setTab(value);
@@ -147,6 +160,7 @@ export function SubscriptionsView() {
         </Stack>
 
         <Card>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pt: 2, gap: 2, flexWrap: 'wrap' }}>
           <Tabs
             value={tab}
             onChange={handleChangeTab}
@@ -157,6 +171,17 @@ export function SubscriptionsView() {
               <Tab key={item.value} label={item.label} value={item.value} />
             ))}
           </Tabs>
+          <TextField
+            size="small"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
+            placeholder="Search by name, email, or plan"
+            sx={{ minWidth: 280 }}
+          />
+          </Stack>
 
           {error && (
             <Alert severity="error" sx={{ mx: 2, mt: 2 }}>

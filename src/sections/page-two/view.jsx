@@ -212,14 +212,18 @@ export function PageTwoView() {
 
   // Load document preview (blob URL) for inline viewing when dialog opens or tab changes
   useEffect(() => {
-    if (!documentsBill) {
+    const cleanup = () => {
       if (previewBlobUrlRef.current) {
         URL.revokeObjectURL(previewBlobUrlRef.current);
         previewBlobUrlRef.current = null;
       }
+    };
+
+    if (!documentsBill) {
+      cleanup();
       setPreviewBlobUrl(null);
       setPreviewLoading(false);
-      return;
+      return undefined;
     }
     const key =
       docViewTab === 0
@@ -228,7 +232,7 @@ export function PageTwoView() {
     if (!key) {
       setPreviewBlobUrl(null);
       setPreviewLoading(false);
-      return;
+      return undefined;
     }
     if (previewBlobUrlRef.current) {
       URL.revokeObjectURL(previewBlobUrlRef.current);
@@ -245,12 +249,8 @@ export function PageTwoView() {
       })
       .catch(() => setPreviewBlobUrl(null))
       .finally(() => setPreviewLoading(false));
-    return () => {
-      if (previewBlobUrlRef.current) {
-        URL.revokeObjectURL(previewBlobUrlRef.current);
-        previewBlobUrlRef.current = null;
-      }
-    };
+
+    return cleanup;
   }, [documentsBill, docViewTab]);
 
   const updateStatus = async (userId, billId, status) => {
@@ -327,7 +327,7 @@ export function PageTwoView() {
           <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={2}>
             <TextField
               size="small"
-              placeholder="Search by user or patient name"
+              placeholder="Search by user or patient"
               value={searchQuery}
               onChange={handleChangeSearch}
               sx={{ minWidth: 220 }}

@@ -129,14 +129,18 @@ export function RefundRequestsView() {
 
   // Load document preview (blob URL) for inline viewing when dialog opens or tab changes
   useEffect(() => {
-    if (!documentsBill) {
+    const cleanup = () => {
       if (previewBlobUrlRef.current) {
         URL.revokeObjectURL(previewBlobUrlRef.current);
         previewBlobUrlRef.current = null;
       }
+    };
+
+    if (!documentsBill) {
+      cleanup();
       setPreviewBlobUrl(null);
       setPreviewLoading(false);
-      return;
+      return undefined;
     }
     const key =
       docViewTab === 0
@@ -145,7 +149,7 @@ export function RefundRequestsView() {
     if (!key) {
       setPreviewBlobUrl(null);
       setPreviewLoading(false);
-      return;
+      return undefined;
     }
     if (previewBlobUrlRef.current) {
       URL.revokeObjectURL(previewBlobUrlRef.current);
@@ -162,12 +166,8 @@ export function RefundRequestsView() {
       })
       .catch(() => setPreviewBlobUrl(null))
       .finally(() => setPreviewLoading(false));
-    return () => {
-      if (previewBlobUrlRef.current) {
-        URL.revokeObjectURL(previewBlobUrlRef.current);
-        previewBlobUrlRef.current = null;
-      }
-    };
+
+    return cleanup;
   }, [documentsBill, docViewTab]);
 
   const openConfirm = (userId, bill, action) => {
@@ -221,7 +221,7 @@ export function RefundRequestsView() {
           </Box>
           <TextField
             size="small"
-            placeholder="Search by user or patient name"
+            placeholder="Search by user or patient"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             sx={{ minWidth: 220 }}

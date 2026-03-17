@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
+/* eslint-disable import/no-unresolved */
 import {
   ResponsiveContainer,
   BarChart,
@@ -14,6 +15,7 @@ import {
   Cell,
   Legend,
 } from 'recharts';
+/* eslint-enable import/no-unresolved */
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';

@@ -125,14 +125,18 @@ export function PageOneView() {
 
   // Load document preview (blob URL) for inline viewing when document viewer opens or tab changes
   useEffect(() => {
-    if (!documentsBill) {
+    const cleanup = () => {
       if (previewBlobUrlRef.current) {
         URL.revokeObjectURL(previewBlobUrlRef.current);
         previewBlobUrlRef.current = null;
       }
+    };
+
+    if (!documentsBill) {
+      cleanup();
       setPreviewBlobUrl(null);
       setPreviewLoading(false);
-      return;
+      return undefined;
     }
     const key =
       docViewTab === 0
@@ -141,7 +145,7 @@ export function PageOneView() {
     if (!key) {
       setPreviewBlobUrl(null);
       setPreviewLoading(false);
-      return;
+      return undefined;
     }
     if (previewBlobUrlRef.current) {
       URL.revokeObjectURL(previewBlobUrlRef.current);
@@ -158,12 +162,8 @@ export function PageOneView() {
       })
       .catch(() => setPreviewBlobUrl(null))
       .finally(() => setPreviewLoading(false));
-    return () => {
-      if (previewBlobUrlRef.current) {
-        URL.revokeObjectURL(previewBlobUrlRef.current);
-        previewBlobUrlRef.current = null;
-      }
-    };
+
+    return cleanup;
   }, [documentsBill, docViewTab]);
 
   const handleOpenDialog = (mode, row = null) => {
