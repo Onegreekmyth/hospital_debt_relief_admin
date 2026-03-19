@@ -26,9 +26,8 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import Tooltip from '@mui/material/Tooltip';
 import Badge from '@mui/material/Badge';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -56,6 +55,12 @@ const DOCUMENT_TYPE_LABELS = {
 const getDocumentTypeLabel = (value) =>
   (value && DOCUMENT_TYPE_LABELS[value]) || value || '—';
 
+const getHipaaEmailConsentLabel = (value) => {
+  if (value === 'unencrypted_consent') return 'Consent to unencrypted email';
+  if (value === 'encrypted_required') return 'Require encrypted communication';
+  return 'Not selected';
+};
+
 // ----------------------------------------------------------------------
 
 export function PageOneView() {
@@ -74,6 +79,8 @@ export function PageOneView() {
   const [total, setTotal] = useState(0);
   const [verifiedFilter, setVerifiedFilter] = useState('all'); // 'all' | 'verified' | 'unverified'
   const [sortBy, setSortBy] = useState('createdAtDesc'); // createdAtDesc | createdAtAsc | nameAsc | nameDesc
+  const [verifiedMenuAnchor, setVerifiedMenuAnchor] = useState(null);
+  const [sortMenuAnchor, setSortMenuAnchor] = useState(null);
   const [billFiles, setBillFiles] = useState({});
   const [uploading, setUploading] = useState({});
   const [uploadSuccess, setUploadSuccess] = useState({});
@@ -219,6 +226,22 @@ export function PageOneView() {
     setPage(0);
   };
 
+  const openVerifiedMenu = (event) => {
+    setVerifiedMenuAnchor(event.currentTarget);
+  };
+
+  const closeVerifiedMenu = () => {
+    setVerifiedMenuAnchor(null);
+  };
+
+  const openSortMenu = (event) => {
+    setSortMenuAnchor(event.currentTarget);
+  };
+
+  const closeSortMenu = () => {
+    setSortMenuAnchor(null);
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -348,46 +371,13 @@ export function PageOneView() {
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4">Users</Typography>
 
-        <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={2}>
-          <TextField
-            size="small"
-            placeholder="Search by name or email"
-            value={searchQuery}
-            onChange={handleChangeSearch}
-            sx={{ minWidth: 220 }}
-          />
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Filter</InputLabel>
-            <Select
-              value={verifiedFilter}
-              label="Filter"
-              onChange={(e) => {
-                setVerifiedFilter(e.target.value);
-                setPage(0);
-              }}
-            >
-              <MenuItem value="all">All users</MenuItem>
-              <MenuItem value="verified">Verified only</MenuItem>
-              <MenuItem value="unverified">Unverified only</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Sort by</InputLabel>
-            <Select
-              value={sortBy}
-              label="Sort by"
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                setPage(0);
-              }}
-            >
-              <MenuItem value="createdAtDesc">Newest first</MenuItem>
-              <MenuItem value="createdAtAsc">Oldest first</MenuItem>
-              <MenuItem value="nameAsc">Name (A–Z)</MenuItem>
-              <MenuItem value="nameDesc">Name (Z–A)</MenuItem>
-            </Select>
-          </FormControl>
-        </Stack>
+        <TextField
+          size="small"
+          placeholder="Search by name or email"
+          value={searchQuery}
+          onChange={handleChangeSearch}
+          sx={{ minWidth: 240 }}
+        />
       </Stack>
 
       {error && (
@@ -410,10 +400,36 @@ export function PageOneView() {
                     <TableCell>Name</TableCell>
                     <TableCell>Email</TableCell>
                     <TableCell>Phone</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="inherit">Status</Typography>
+                        <IconButton
+                          size="small"
+                          onClick={openVerifiedMenu}
+                          color={verifiedFilter !== 'all' ? 'primary' : 'default'}
+                          title="Filter status"
+                          aria-label="Filter status"
+                        >
+                          <Iconify icon="solar:filter-bold" width={16} />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
                     <TableCell>Eligibility Requests</TableCell>
                     <TableCell>Bills</TableCell>
-                    <TableCell>Created At</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="inherit">Created At</Typography>
+                        <IconButton
+                          size="small"
+                          onClick={openSortMenu}
+                          color={sortBy !== 'createdAtDesc' ? 'primary' : 'default'}
+                          title="Sort users"
+                          aria-label="Sort users"
+                        >
+                          <Iconify icon="solar:sort-bold" width={16} />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -551,6 +567,94 @@ export function PageOneView() {
           </>
         )}
       </Card>
+
+      <Menu
+        anchorEl={verifiedMenuAnchor}
+        open={Boolean(verifiedMenuAnchor)}
+        onClose={closeVerifiedMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        <MenuItem
+          selected={verifiedFilter === 'all'}
+          onClick={() => {
+            setVerifiedFilter('all');
+            setPage(0);
+            closeVerifiedMenu();
+          }}
+        >
+          All users
+        </MenuItem>
+        <MenuItem
+          selected={verifiedFilter === 'verified'}
+          onClick={() => {
+            setVerifiedFilter('verified');
+            setPage(0);
+            closeVerifiedMenu();
+          }}
+        >
+          Verified only
+        </MenuItem>
+        <MenuItem
+          selected={verifiedFilter === 'unverified'}
+          onClick={() => {
+            setVerifiedFilter('unverified');
+            setPage(0);
+            closeVerifiedMenu();
+          }}
+        >
+          Unverified only
+        </MenuItem>
+      </Menu>
+
+      <Menu
+        anchorEl={sortMenuAnchor}
+        open={Boolean(sortMenuAnchor)}
+        onClose={closeSortMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        <MenuItem
+          selected={sortBy === 'createdAtDesc'}
+          onClick={() => {
+            setSortBy('createdAtDesc');
+            setPage(0);
+            closeSortMenu();
+          }}
+        >
+          Newest first
+        </MenuItem>
+        <MenuItem
+          selected={sortBy === 'createdAtAsc'}
+          onClick={() => {
+            setSortBy('createdAtAsc');
+            setPage(0);
+            closeSortMenu();
+          }}
+        >
+          Oldest first
+        </MenuItem>
+        <MenuItem
+          selected={sortBy === 'nameAsc'}
+          onClick={() => {
+            setSortBy('nameAsc');
+            setPage(0);
+            closeSortMenu();
+          }}
+        >
+          Name (A-Z)
+        </MenuItem>
+        <MenuItem
+          selected={sortBy === 'nameDesc'}
+          onClick={() => {
+            setSortBy('nameDesc');
+            setPage(0);
+            closeSortMenu();
+          }}
+        >
+          Name (Z-A)
+        </MenuItem>
+      </Menu>
 
       <Dialog
         open={openDialog}
@@ -809,6 +913,14 @@ export function PageOneView() {
                             Status
                           </Typography>
                           <Typography variant="body2">{bill.status || 'N/A'}</Typography>
+                        </Box>
+                        <Box sx={{ gridColumn: '1 / -1' }}>
+                          <Typography variant="caption" color="text.secondary">
+                            HIPAA Email Communication Preference
+                          </Typography>
+                          <Typography variant="body2">
+                            {getHipaaEmailConsentLabel(bill.hipaaEmailConsent)}
+                          </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">

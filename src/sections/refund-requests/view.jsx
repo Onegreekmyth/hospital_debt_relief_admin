@@ -18,9 +18,8 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -90,6 +89,7 @@ export function RefundRequestsView() {
   const [documentsBill, setDocumentsBill] = useState(null);
   const [docViewTab, setDocViewTab] = useState(0);
   const [sortBy, setSortBy] = useState('dateDesc'); // dateDesc | dateAsc
+  const [sortMenuAnchor, setSortMenuAnchor] = useState(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewBlobUrlRef = useRef(null);
@@ -209,6 +209,14 @@ export function RefundRequestsView() {
     ? 'The customer will receive the $299 flat fee back via Stripe. This cannot be undone.'
     : 'The refund request will be marked as rejected. The customer will not receive a refund.';
 
+  const openSortMenu = (event) => {
+    setSortMenuAnchor(event.currentTarget);
+  };
+
+  const closeSortMenu = () => {
+    setSortMenuAnchor(null);
+  };
+
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={3}>
@@ -226,17 +234,6 @@ export function RefundRequestsView() {
             onChange={(e) => setSearchQuery(e.target.value)}
             sx={{ minWidth: 220 }}
           />
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Sort by</InputLabel>
-            <Select
-              value={sortBy}
-              label="Sort by"
-              onChange={(e) => setSortBy(e.target.value)}
-            >
-              <MenuItem value="dateDesc">Newest first</MenuItem>
-              <MenuItem value="dateAsc">Oldest first</MenuItem>
-            </Select>
-          </FormControl>
         </Stack>
 
         <Card>
@@ -258,7 +255,20 @@ export function RefundRequestsView() {
                     <TableCell>User</TableCell>
                     <TableCell>Patient / Bill</TableCell>
                     <TableCell align="right">Bill amount</TableCell>
-                    <TableCell>Requested at</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="inherit">Requested at</Typography>
+                        <IconButton
+                          size="small"
+                          onClick={openSortMenu}
+                          color={sortBy !== 'dateDesc' ? 'primary' : 'default'}
+                          title="Sort by request date"
+                          aria-label="Sort by request date"
+                        >
+                          <Iconify icon="solar:sort-bold" width={16} />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
                     <TableCell>Documents</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -373,6 +383,33 @@ export function RefundRequestsView() {
             </TableContainer>
           )}
         </Card>
+
+        <Menu
+          anchorEl={sortMenuAnchor}
+          open={Boolean(sortMenuAnchor)}
+          onClose={closeSortMenu}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        >
+          <MenuItem
+            selected={sortBy === 'dateDesc'}
+            onClick={() => {
+              setSortBy('dateDesc');
+              closeSortMenu();
+            }}
+          >
+            Newest first
+          </MenuItem>
+          <MenuItem
+            selected={sortBy === 'dateAsc'}
+            onClick={() => {
+              setSortBy('dateAsc');
+              closeSortMenu();
+            }}
+          >
+            Oldest first
+          </MenuItem>
+        </Menu>
 
         <Dialog open={confirmOpen} onClose={closeConfirm} maxWidth="sm" fullWidth>
           <DialogTitle>{confirmTitle}</DialogTitle>

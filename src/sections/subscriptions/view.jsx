@@ -3,8 +3,6 @@ import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
 import Table from '@mui/material/Table';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
@@ -17,17 +15,13 @@ import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { Iconify } from 'src/components/iconify';
 import axios, { endpoints } from 'src/utils/axios';
-
-// ----------------------------------------------------------------------
-
-const TAB_CONFIG = [
-  { value: 'active', label: 'Active subscriptions' },
-  { value: 'cancelled', label: 'Cancelled subscriptions' },
-  { value: 'all', label: 'All users' },
-];
 
 // ----------------------------------------------------------------------
 
@@ -40,6 +34,7 @@ export function SubscriptionsView() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -96,11 +91,6 @@ export function SubscriptionsView() {
     fetchData();
   }, [tab, page, rowsPerPage, searchQuery]);
 
-  const handleChangeTab = (event, value) => {
-    setTab(value);
-    setPage(0);
-  };
-
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
   };
@@ -152,25 +142,19 @@ export function SubscriptionsView() {
   const getDisplayName = (user) =>
     [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.name || 'N/A';
 
+  const openStatusMenu = (event) => {
+    setStatusMenuAnchor(event.currentTarget);
+  };
+
+  const closeStatusMenu = () => {
+    setStatusMenuAnchor(null);
+  };
+
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={3}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h4">Subscriptions</Typography>
-        </Stack>
-
-        <Card>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, pt: 2, gap: 2, flexWrap: 'wrap' }}>
-          <Tabs
-            value={tab}
-            onChange={handleChangeTab}
-            sx={{ px: 2, pt: 1 }}
-            aria-label="Subscription status tabs"
-          >
-            {TAB_CONFIG.map((item) => (
-              <Tab key={item.value} label={item.label} value={item.value} />
-            ))}
-          </Tabs>
           <TextField
             size="small"
             value={searchQuery}
@@ -181,7 +165,9 @@ export function SubscriptionsView() {
             placeholder="Search by name, email, or plan"
             sx={{ minWidth: 280 }}
           />
-          </Stack>
+        </Stack>
+
+        <Card>
 
           {error && (
             <Alert severity="error" sx={{ mx: 2, mt: 2 }}>
@@ -202,7 +188,20 @@ export function SubscriptionsView() {
                       <TableCell>User</TableCell>
                       <TableCell>Email</TableCell>
                       <TableCell>Plan</TableCell>
-                      <TableCell>Status</TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Typography variant="inherit">Status</Typography>
+                          <IconButton
+                            size="small"
+                            onClick={openStatusMenu}
+                            color={tab !== 'active' ? 'primary' : 'default'}
+                            title="Filter status"
+                            aria-label="Filter status"
+                          >
+                            <Iconify icon="solar:filter-bold" width={16} />
+                          </IconButton>
+                        </Stack>
+                      </TableCell>
                       <TableCell>Current period</TableCell>
                       <TableCell>Cancel at period end</TableCell>
                       <TableCell>Created</TableCell>
@@ -273,6 +272,45 @@ export function SubscriptionsView() {
                 onRowsPerPageChange={handleChangeRowsPerPage}
                 rowsPerPageOptions={[5, 10, 25, 50]}
               />
+
+              <Menu
+                anchorEl={statusMenuAnchor}
+                open={Boolean(statusMenuAnchor)}
+                onClose={closeStatusMenu}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              >
+                <MenuItem
+                  selected={tab === 'active'}
+                  onClick={() => {
+                    setTab('active');
+                    setPage(0);
+                    closeStatusMenu();
+                  }}
+                >
+                  Active subscriptions
+                </MenuItem>
+                <MenuItem
+                  selected={tab === 'cancelled'}
+                  onClick={() => {
+                    setTab('cancelled');
+                    setPage(0);
+                    closeStatusMenu();
+                  }}
+                >
+                  Cancelled subscriptions
+                </MenuItem>
+                <MenuItem
+                  selected={tab === 'all'}
+                  onClick={() => {
+                    setTab('all');
+                    setPage(0);
+                    closeStatusMenu();
+                  }}
+                >
+                  All users
+                </MenuItem>
+              </Menu>
             </>
           )}
         </Card>

@@ -9,6 +9,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
+import TableSortLabel from '@mui/material/TableSortLabel';
 import TableContainer from '@mui/material/TableContainer';
 import TablePagination from '@mui/material/TablePagination';
 import TextField from '@mui/material/TextField';
@@ -20,9 +21,8 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -91,6 +91,12 @@ function getDisplayStatus(bill) {
   return bill.status || 'pending';
 }
 
+function getHipaaEmailConsentLabel(value) {
+  if (value === 'unencrypted_consent') return 'Unencrypted email consent';
+  if (value === 'encrypted_required') return 'Encrypted email required';
+  return null;
+}
+
 function matchesBillSearch(bill, query) {
   if (!query || !String(query).trim()) return true;
   const q = String(query).trim().toLowerCase();
@@ -108,15 +114,6 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'inactive', label: 'Incomplete' },
-];
-
-const SORT_OPTIONS = [
-  { value: 'dateDesc', label: 'Date (newest first)' },
-  { value: 'dateAsc', label: 'Date (oldest first)' },
-  { value: 'amountDesc', label: 'Amount (high to low)' },
-  { value: 'amountAsc', label: 'Amount (low to high)' },
-  { value: 'userAsc', label: 'User (A–Z)' },
-  { value: 'userDesc', label: 'User (Z–A)' },
 ];
 
 function filterByStatus(bill, statusFilter) {
@@ -154,6 +151,20 @@ function sortBills(list, sortBy) {
 
 // ----------------------------------------------------------------------
 
+function getSortByFromHeader(column, direction) {
+  if (column === 'user') return direction === 'asc' ? 'userAsc' : 'userDesc';
+  if (column === 'amount') return direction === 'asc' ? 'amountAsc' : 'amountDesc';
+  if (column === 'date') return direction === 'asc' ? 'dateAsc' : 'dateDesc';
+  return 'dateDesc';
+}
+
+function getHeaderSortDirection(sortBy, column) {
+  if (column === 'user') return sortBy === 'userAsc' ? 'asc' : sortBy === 'userDesc' ? 'desc' : false;
+  if (column === 'amount') return sortBy === 'amountAsc' ? 'asc' : sortBy === 'amountDesc' ? 'desc' : false;
+  if (column === 'date') return sortBy === 'dateAsc' ? 'asc' : sortBy === 'dateDesc' ? 'desc' : false;
+  return false;
+}
+
 export function PageTwoView() {
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -168,6 +179,7 @@ export function PageTwoView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('dateDesc');
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState(null);
   const [docViewTab, setDocViewTab] = useState(0); // 0 = bill PDF, 1+ = supporting doc index
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -319,54 +331,33 @@ export function PageTwoView() {
     setPage(0);
   };
 
+  const handleHeaderSort = (column) => {
+    const currentDirection = getHeaderSortDirection(sortBy, column);
+    const nextDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+    setSortBy(getSortByFromHeader(column, nextDirection));
+    setPage(0);
+  };
+
+  const handleOpenStatusMenu = (event) => {
+    setStatusMenuAnchor(event.currentTarget);
+  };
+
+  const handleCloseStatusMenu = () => {
+    setStatusMenuAnchor(null);
+  };
+
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={3}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ flexWrap: 'wrap', gap: 2 }}>
           <Typography variant="h4">Hospital Bill Approval</Typography>
-          <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={2}>
-            <TextField
-              size="small"
-              placeholder="Search by user or patient"
-              value={searchQuery}
-              onChange={handleChangeSearch}
-              sx={{ minWidth: 220 }}
-            />
-            <FormControl size="small" sx={{ minWidth: 160 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(0);
-                }}
-              >
-                {STATUS_FILTER_OPTIONS.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Sort by</InputLabel>
-              <Select
-                value={sortBy}
-                label="Sort by"
-                onChange={(e) => {
-                  setSortBy(e.target.value);
-                  setPage(0);
-                }}
-              >
-                {SORT_OPTIONS.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
+          <TextField
+            size="small"
+            placeholder="Search by user or patient name"
+            value={searchQuery}
+            onChange={handleChangeSearch}
+            sx={{ minWidth: 260 }}
+          />
         </Stack>
 
         <Card>
@@ -385,12 +376,49 @@ export function PageTwoView() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>User</TableCell>
+                    <TableCell sortDirection={getHeaderSortDirection(sortBy, 'user') || false}>
+                      <TableSortLabel
+                        active={!!getHeaderSortDirection(sortBy, 'user')}
+                        direction={getHeaderSortDirection(sortBy, 'user') || 'asc'}
+                        onClick={() => handleHeaderSort('user')}
+                      >
+                        User
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>Patient name</TableCell>
-                    <TableCell align="right">Bill amount</TableCell>
+                    <TableCell align="right" sortDirection={getHeaderSortDirection(sortBy, 'amount') || false}>
+                      <TableSortLabel
+                        active={!!getHeaderSortDirection(sortBy, 'amount')}
+                        direction={getHeaderSortDirection(sortBy, 'amount') || 'asc'}
+                        onClick={() => handleHeaderSort('amount')}
+                      >
+                        Bill amount
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell align="right">Revised amount</TableCell>
-                    <TableCell>Service date</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell sortDirection={getHeaderSortDirection(sortBy, 'date') || false}>
+                      <TableSortLabel
+                        active={!!getHeaderSortDirection(sortBy, 'date')}
+                        direction={getHeaderSortDirection(sortBy, 'date') || 'asc'}
+                        onClick={() => handleHeaderSort('date')}
+                      >
+                        Service date
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Typography variant="inherit">Status</Typography>
+                        <IconButton
+                          size="small"
+                          onClick={handleOpenStatusMenu}
+                          color={statusFilter !== 'all' ? 'primary' : 'default'}
+                          title="Filter status"
+                          aria-label="Filter status"
+                        >
+                          <Iconify icon="solar:filter-bold" width={16} />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
                     <TableCell>Documents</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -449,6 +477,11 @@ export function PageTwoView() {
                               variant="outlined"
                               title={isBillInactive(bill) ? 'User has not completed this bill yet. You can delete it.' : undefined}
                             />
+                            {getHipaaEmailConsentLabel(bill.hipaaEmailConsent) && (
+                              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                {getHipaaEmailConsentLabel(bill.hipaaEmailConsent)}
+                              </Typography>
+                            )}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -542,6 +575,28 @@ export function PageTwoView() {
               </Table>
             </TableContainer>
           )}
+
+          <Menu
+            anchorEl={statusMenuAnchor}
+            open={Boolean(statusMenuAnchor)}
+            onClose={handleCloseStatusMenu}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          >
+            {STATUS_FILTER_OPTIONS.map((opt) => (
+              <MenuItem
+                key={opt.value}
+                selected={statusFilter === opt.value}
+                onClick={() => {
+                  setStatusFilter(opt.value);
+                  setPage(0);
+                  handleCloseStatusMenu();
+                }}
+              >
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Menu>
 
           {!loading && filteredBills.length > 0 && (
             <TablePagination
