@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -90,6 +90,37 @@ export function PageOneView() {
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewBlobUrlRef = useRef(null);
+  const documentTabs = useMemo(() => {
+    if (!documentsBill) return [];
+    const tabs = [
+      {
+        label: documentsBill.pdfKey ? 'Bill PDF' : 'Bill PDF (none)',
+        key: documentsBill.pdfKey,
+        url: documentsBill.pdfUrl,
+        title: 'Bill PDF',
+        downloadLabel: 'Download bill PDF',
+      },
+    ];
+    if (documentsBill.electronicConsentForm) {
+      tabs.push({
+        label: 'Electronic Consent Form',
+        key: documentsBill.electronicConsentForm.pdfKey,
+        url: documentsBill.electronicConsentForm.pdfUrl,
+        title: 'Electronic Consent Form',
+        downloadLabel: 'Download electronic consent form',
+      });
+    }
+    (documentsBill.supportingDocuments || []).forEach((doc, idx) => {
+      tabs.push({
+        label: doc.documentType ? getDocumentTypeLabel(doc.documentType) : `Document ${idx + 1}`,
+        key: doc.pdfKey,
+        url: doc.pdfUrl,
+        title: doc.pdfFileName || `Document ${idx + 1}`,
+        downloadLabel: `Download ${doc.documentType ? getDocumentTypeLabel(doc.documentType) : 'document'}`,
+      });
+    });
+    return tabs;
+  }, [documentsBill]);
 
   const isViewMode = dialogMode === 'view';
 
@@ -145,10 +176,7 @@ export function PageOneView() {
       setPreviewLoading(false);
       return undefined;
     }
-    const key =
-      docViewTab === 0
-        ? documentsBill.pdfKey
-        : documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfKey;
+    const key = documentTabs[docViewTab]?.key;
     if (!key) {
       setPreviewBlobUrl(null);
       setPreviewLoading(false);
@@ -171,7 +199,13 @@ export function PageOneView() {
       .finally(() => setPreviewLoading(false));
 
     return cleanup;
-  }, [documentsBill, docViewTab]);
+  }, [documentsBill, docViewTab, documentTabs]);
+
+  useEffect(() => {
+    if (docViewTab >= documentTabs.length) {
+      setDocViewTab(0);
+    }
+  }, [docViewTab, documentTabs.length]);
 
   const handleOpenDialog = (mode, row = null) => {
     setDialogMode(mode);
@@ -1054,19 +1088,10 @@ export function PageOneView() {
                 scrollButtons="auto"
                 sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 48 }}
               >
-                <Tab
-                  label={documentsBill.pdfKey ? 'Bill PDF' : 'Bill PDF (none)'}
-                  id="user-doc-tab-0"
-                  aria-controls="user-doc-panel-0"
-                />
-                {(documentsBill.supportingDocuments || []).map((doc, idx) => (
+                {documentTabs.map((tabItem, idx) => (
                   <Tab
-                    key={doc._id || idx}
-                    label={
-                      doc.documentType
-                        ? getDocumentTypeLabel(doc.documentType)
-                        : `Document ${idx + 1}`
-                    }
+                    key={`${tabItem.title}-${idx}`}
+                    label={tabItem.label}
                     id={`user-doc-tab-${idx + 1}`}
                     aria-controls={`user-doc-panel-${idx + 1}`}
                   />
@@ -1074,45 +1099,23 @@ export function PageOneView() {
               </Tabs>
 
               <Box sx={{ flex: 1, minHeight: 480, display: 'flex', flexDirection: 'column' }}>
-                {docViewTab === 0 && !documentsBill.pdfKey ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No bill PDF uploaded.
-                  </Typography>
-                ) : docViewTab > 0 && !documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfKey ? (
+                {!documentTabs[docViewTab]?.key ? (
                   <Typography variant="body2" color="text.secondary">
                     No document.
                   </Typography>
                 ) : (
                   <>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                      {docViewTab === 0 ? (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          href={documentsBill.pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
-                        >
-                          Download bill PDF
-                        </Button>
-                      ) : (
-                        (() => {
-                          const doc = documentsBill.supportingDocuments[docViewTab - 1];
-                          return (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              href={doc?.pdfUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
-                            >
-                              Download {doc?.documentType ? getDocumentTypeLabel(doc.documentType) : 'document'}
-                            </Button>
-                          );
-                        })()
-                      )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        href={documentTabs[docViewTab]?.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                      >
+                        {documentTabs[docViewTab]?.downloadLabel || 'Download document'}
+                      </Button>
                     </Stack>
                     {previewLoading ? (
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 440 }}>
@@ -1122,7 +1125,7 @@ export function PageOneView() {
                       <Box
                         component="iframe"
                         src={previewBlobUrl}
-                        title={docViewTab === 0 ? 'Bill PDF' : documentsBill.supportingDocuments?.[docViewTab - 1]?.pdfFileName || 'Document'}
+                          title={documentTabs[docViewTab]?.title || 'Document'}
                         sx={{
                           flex: 1,
                           width: '100%',
