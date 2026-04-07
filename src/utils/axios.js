@@ -64,6 +64,10 @@ export const endpoints = {
     uploadSupportingDoc: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/supporting-documents`,
     updateBillStatus: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/status`,
     deleteBill: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}`,
+    uploadApplicationForm: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/application-form`,
+    requestApplicationChanges: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/application-form/request-changes`,
+    getApplicationForm: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/application-form`,
+    saveApplicationForm: (userId, billId) => `/api/v1/admin/users/${userId}/bills/${billId}/application-form/save`,
   },
   documents: {
     preview: (key) => `/api/v1/admin/documents/preview?key=${encodeURIComponent(key)}`,

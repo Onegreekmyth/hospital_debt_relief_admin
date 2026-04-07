@@ -27,6 +27,8 @@ import MenuItem from '@mui/material/MenuItem';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
+import { useNavigate } from 'react-router-dom';
+
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
 import axios, { endpoints } from 'src/utils/axios';
@@ -88,6 +90,9 @@ function flattenBills(users) {
 function getDisplayStatus(bill) {
   const s = (bill.status || '').toLowerCase();
   if (s === 'inactive') return 'Incomplete';
+  if (s === 'application_added') return 'Application Added';
+  if (s === 'application_submitted') return 'Application Submitted';
+  if (s === 'application_info_requested') return 'Info Requested';
   return bill.status || 'pending';
 }
 
@@ -114,6 +119,9 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'inactive', label: 'Incomplete' },
+  { value: 'application_added', label: 'Application Added' },
+  { value: 'application_submitted', label: 'Application Submitted' },
+  { value: 'application_info_requested', label: 'Info Requested' },
 ];
 
 function filterByStatus(bill, statusFilter) {
@@ -166,6 +174,7 @@ function getHeaderSortDirection(sortBy, column) {
 }
 
 export function PageTwoView() {
+  const nav = useNavigate();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -184,6 +193,14 @@ export function PageTwoView() {
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewBlobUrlRef = useRef(null);
+
+  // Application Form state
+  const [appFormDialogBill, setAppFormDialogBill] = useState(null); // bill for upload dialog
+  const [appFormFile, setAppFormFile] = useState(null);
+  const [uploadingAppForm, setUploadingAppForm] = useState(false);
+  const [requestChangesDialogBill, setRequestChangesDialogBill] = useState(null);
+  const [requestChangesNote, setRequestChangesNote] = useState('');
+  const [requestingChanges, setRequestingChanges] = useState(false);
   const documentTabs = useMemo(() => {
     if (!documentsBill) return [];
     const tabs = [
@@ -202,6 +219,24 @@ export function PageTwoView() {
         url: documentsBill.electronicConsentForm.pdfUrl,
         title: 'Electronic Consent Form',
         downloadLabel: 'Download electronic consent form',
+      });
+    }
+    if (documentsBill.applicationForm?.pdfUrl) {
+      tabs.push({
+        label: 'Application Form (Original)',
+        key: documentsBill.applicationForm.pdfKey,
+        url: documentsBill.applicationForm.pdfUrl,
+        title: 'Application Form (Original)',
+        downloadLabel: 'Download application form (original)',
+      });
+    }
+    if (documentsBill.applicationForm?.editedPdfUrl) {
+      tabs.push({
+        label: 'Application Form (Edited)',
+        key: documentsBill.applicationForm.editedPdfKey,
+        url: documentsBill.applicationForm.editedPdfUrl,
+        title: 'Application Form (Edited)',
+        downloadLabel: 'Download application form (edited)',
       });
     }
     (documentsBill.supportingDocuments || []).forEach((doc, idx) => {
@@ -323,12 +358,68 @@ export function PageTwoView() {
 
   const isBillInactive = (bill) => (bill.status || '').toLowerCase() === 'inactive';
 
+  const canUploadAppForm = (bill) => {
+    const s = (bill.status || '').toLowerCase();
+    return s !== 'inactive';
+  };
+
+  const canRequestChanges = (bill) => {
+    const s = (bill.status || '').toLowerCase();
+    return s === 'application_submitted';
+  };
+
+  const handleUploadAppForm = async () => {
+    if (!appFormDialogBill || !appFormFile || uploadingAppForm) return;
+    setUploadingAppForm(true);
+    try {
+      const formData = new FormData();
+      formData.append('pdf', appFormFile);
+      await axios.post(
+        endpoints.users.uploadApplicationForm
+          ? endpoints.users.uploadApplicationForm(appFormDialogBill.userId, appFormDialogBill._id)
+          : `/api/v1/admin/users/${appFormDialogBill.userId}/bills/${appFormDialogBill._id}/application-form`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      setAppFormDialogBill(null);
+      setAppFormFile(null);
+      await fetchBills();
+    } catch (err) {
+      console.error('Error uploading application form:', err);
+      setError(err?.message || 'Failed to upload application form');
+    } finally {
+      setUploadingAppForm(false);
+    }
+  };
+
+  const handleRequestChanges = async () => {
+    if (!requestChangesDialogBill || requestingChanges) return;
+    setRequestingChanges(true);
+    try {
+      await axios.patch(
+        `/api/v1/admin/users/${requestChangesDialogBill.userId}/bills/${requestChangesDialogBill._id}/application-form/request-changes`,
+        { note: requestChangesNote }
+      );
+      setRequestChangesDialogBill(null);
+      setRequestChangesNote('');
+      await fetchBills();
+    } catch (err) {
+      console.error('Error requesting changes:', err);
+      setError(err?.message || 'Failed to request changes');
+    } finally {
+      setRequestingChanges(false);
+    }
+  };
+
   const getStatusColor = (status, bill) => {
     const s = (status || '').toLowerCase();
     if (s === 'inactive' || (bill && (bill.status || '').toLowerCase() === 'inactive')) return 'warning';
     if (s === 'approved') return 'success';
     if (s === 'rejected') return 'error';
     if (s === 'submitted' || s === 'processing') return 'info';
+    if (s === 'application_added') return 'info';
+    if (s === 'application_submitted') return 'success';
+    if (s === 'application_info_requested') return 'warning';
     return 'default';
   };
 
@@ -531,7 +622,7 @@ export function PageTwoView() {
                             </Button>
                           </TableCell>
                           <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
+                            <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center" flexWrap="wrap">
                               {canChange ? (
                                 <>
                                   <Button
@@ -579,8 +670,53 @@ export function PageTwoView() {
                                       ? 'Approved'
                                       : bill.status === 'rejected'
                                         ? 'Rejected'
-                                        : '—'}
+                                        : bill.status === 'application_added'
+                                          ? 'Awaiting user'
+                                          : bill.status === 'application_info_requested'
+                                            ? 'Awaiting user'
+                                            : '—'}
                                 </Typography>
+                              )}
+                              {/* Application Form Actions */}
+                              {canUploadAppForm(bill) && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  startIcon={<Iconify icon="solar:file-text-bold" />}
+                                  onClick={() => {
+                                    setAppFormDialogBill(bill);
+                                    setAppFormFile(null);
+                                  }}
+                                  title={bill.applicationForm?.pdfUrl ? 'Replace application form' : 'Upload application form'}
+                                >
+                                  {bill.applicationForm?.pdfUrl ? 'Replace Form' : 'Add Form'}
+                                </Button>
+                              )}
+                              {canRequestChanges(bill) && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="warning"
+                                  startIcon={<Iconify icon="solar:pen-new-round-bold" />}
+                                  onClick={() => {
+                                    setRequestChangesDialogBill(bill);
+                                    setRequestChangesNote('');
+                                  }}
+                                >
+                                  Request Changes
+                                </Button>
+                              )}
+                              {bill.applicationForm?.pdfUrl && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="secondary"
+                                  startIcon={<Iconify icon="solar:document-add-bold" />}
+                                  onClick={() => nav(`/dashboard/application-form/${bill.userId}/${bill._id}`)}
+                                >
+                                  Edit Form
+                                </Button>
                               )}
                               <Button
                                 size="small"
@@ -731,6 +867,95 @@ export function PageTwoView() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setDocumentsBill(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Upload Application Form dialog */}
+        <Dialog
+          open={!!appFormDialogBill}
+          onClose={() => { setAppFormDialogBill(null); setAppFormFile(null); }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            {appFormDialogBill?.applicationForm?.pdfUrl ? 'Replace Application Form' : 'Upload Application Form'}
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Upload a Financial Assistance Application Form PDF for{' '}
+              <strong>{appFormDialogBill?.patientName || 'this bill'}</strong>.
+              The user will be notified via email and can fill it out using the online editor.
+            </Typography>
+            {appFormDialogBill?.applicationForm?.pdfUrl && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                This bill already has an application form. Uploading a new one will replace it and reset any user edits.
+              </Alert>
+            )}
+            <Button
+              variant="outlined"
+              component="label"
+              fullWidth
+              sx={{ py: 2, borderStyle: 'dashed' }}
+              startIcon={<Iconify icon="solar:upload-minimalistic-bold" />}
+            >
+              {appFormFile ? appFormFile.name : 'Choose PDF file'}
+              <input
+                type="file"
+                hidden
+                accept=".pdf,application/pdf"
+                onChange={(e) => setAppFormFile(e.target.files?.[0] || null)}
+              />
+            </Button>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => { setAppFormDialogBill(null); setAppFormFile(null); }}>Cancel</Button>
+            <Button
+              variant="contained"
+              disabled={!appFormFile || uploadingAppForm}
+              onClick={handleUploadAppForm}
+              startIcon={uploadingAppForm ? <CircularProgress size={16} color="inherit" /> : null}
+            >
+              {uploadingAppForm ? 'Uploading...' : 'Upload & Notify User'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Request Changes dialog */}
+        <Dialog
+          open={!!requestChangesDialogBill}
+          onClose={() => { setRequestChangesDialogBill(null); setRequestChangesNote(''); }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Request Changes on Application</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Request changes or additional information from the user for{' '}
+              <strong>{requestChangesDialogBill?.patientName || 'this application'}</strong>.
+              The user will receive an email with your note.
+            </Typography>
+            <TextField
+              label="Note to user (optional)"
+              multiline
+              rows={4}
+              fullWidth
+              value={requestChangesNote}
+              onChange={(e) => setRequestChangesNote(e.target.value)}
+              placeholder="Please provide additional details about your income..."
+              sx={{ mt: 1 }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => { setRequestChangesDialogBill(null); setRequestChangesNote(''); }}>Cancel</Button>
+            <Button
+              variant="contained"
+              color="warning"
+              disabled={requestingChanges}
+              onClick={handleRequestChanges}
+              startIcon={requestingChanges ? <CircularProgress size={16} color="inherit" /> : null}
+            >
+              {requestingChanges ? 'Sending...' : 'Send Request & Notify User'}
+            </Button>
           </DialogActions>
         </Dialog>
 

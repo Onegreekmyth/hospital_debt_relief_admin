@@ -20,6 +20,7 @@ const PageThree = lazy(() => import('src/pages/dashboard/three'));
 const PageFour = lazy(() => import('src/pages/dashboard/four'));
 const PageFive = lazy(() => import('src/pages/dashboard/five'));
 const PageSix = lazy(() => import('src/pages/dashboard/six'));
+const ApplicationFormPage = lazy(() => import('src/pages/dashboard/application-form'));
 
 // ----------------------------------------------------------------------
 
@@ -42,6 +43,7 @@ export const dashboardRoutes = [
       { path: 'two', element: <PageTwo /> },
       { path: 'refund-requests', element: <RefundRequestsPage /> },
       { path: 'banner', element: <BannerPage /> },
+      { path: 'application-form/:userId/:billId', element: <ApplicationFormPage /> },
       { path: 'three', element: <PageThree /> },
       {
         path: 'group',
