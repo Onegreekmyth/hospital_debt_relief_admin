@@ -26,6 +26,8 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import * as fabric from 'fabric';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Suppress harmless TrueType font hinting warnings
+pdfjsLib.GlobalWorkerOptions.verbosity = pdfjsLib.VerbosityLevel?.ERRORS ?? 0;
 
 const FONTS = ['Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana'];
 const FONT_SIZES = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 42, 48];
