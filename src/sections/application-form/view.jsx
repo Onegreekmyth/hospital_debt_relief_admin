@@ -267,6 +267,8 @@ export function ApplicationFormView() {
           const text = new fabric.IText('Type here', {
             left: pointer.x,
             top: pointer.y,
+            originX: 'left',
+            originY: 'top',
             fontFamily,
             fontSize,
             fill: fontColor,
