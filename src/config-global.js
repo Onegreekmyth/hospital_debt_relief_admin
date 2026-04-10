@@ -5,7 +5,7 @@ import packageJson from '../package.json';
 // ----------------------------------------------------------------------
 
 export const CONFIG = {
-  appName: 'Minimal UI',
+  appName: 'Admin Dashboard',
   appVersion: packageJson.version,
   serverUrl: import.meta.env.VITE_SERVER_URL ?? 'https://api.hospitaldebtrelief.com',
   assetsDir: import.meta.env.VITE_ASSETS_DIR ?? '',
