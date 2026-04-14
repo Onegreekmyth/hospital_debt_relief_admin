@@ -52,8 +52,7 @@ const DOCUMENT_TYPE_LABELS = {
   letter_from_employer: 'Letter from Employer',
 };
 
-const getDocumentTypeLabel = (value) =>
-  (value && DOCUMENT_TYPE_LABELS[value]) || value || '—';
+const getDocumentTypeLabel = (value) => (value && DOCUMENT_TYPE_LABELS[value]) || value || '—';
 
 const getHipaaEmailConsentLabel = (value) => {
   if (value === 'unencrypted_consent') return 'Consent to unencrypted email';
@@ -70,7 +69,12 @@ export function PageOneView() {
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState('view');
   const [currentRow, setCurrentRow] = useState(null);
-  const [formValues, setFormValues] = useState({ name: '', email: '', phone: '', isVerified: false });
+  const [formValues, setFormValues] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    isVerified: false,
+  });
   const [eligibilityData, setEligibilityData] = useState([]);
   const [billsData, setBillsData] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,9 +158,12 @@ export function PageOneView() {
     };
 
     // Debounce search
-    const timeoutId = setTimeout(() => {
-      fetchUsers();
-    }, searchQuery ? 500 : 0);
+    const timeoutId = setTimeout(
+      () => {
+        fetchUsers();
+      },
+      searchQuery ? 500 : 0
+    );
 
     return () => clearTimeout(timeoutId);
   }, [page, rowsPerPage, searchQuery, verifiedFilter, sortBy]);
@@ -211,8 +218,7 @@ export function PageOneView() {
     setDialogMode(mode);
     setCurrentRow(row);
     if (row) {
-      const displayName =
-        [row.firstName, row.lastName].filter(Boolean).join(' ') || row.name || '';
+      const displayName = [row.firstName, row.lastName].filter(Boolean).join(' ') || row.name || '';
       setFormValues({
         name: displayName,
         email: row.email || '',
@@ -402,7 +408,12 @@ export function PageOneView() {
 
   return (
     <DashboardContent maxWidth="xl">
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3, flexWrap: 'wrap', gap: 2 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ mb: 3, flexWrap: 'wrap', gap: 2 }}
+      >
         <Typography variant="h4">Users</Typography>
 
         <TextField
@@ -490,99 +501,132 @@ export function PageOneView() {
                       const billUploadError = uploadError[billUploadKey];
 
                       return (
-                      <TableRow key={row._id} hover>
-                        <TableCell>{getDisplayName(row)}</TableCell>
-                        <TableCell>{row.email || 'N/A'}</TableCell>
-                        <TableCell>{row.phone || 'N/A'}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={row.isVerified ? 'Verified' : 'Unverified'}
-                            color={row.isVerified ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={row.eligibilityCount || 0}
-                            color={row.eligibilityCount > 0 ? 'primary' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={activeBillsCount}
-                            color={activeBillsCount > 0 ? 'secondary' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>{formatDate(row.createdAt)}</TableCell>
-                        <TableCell align="right">
-                          <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
-                            <Button
+                        <TableRow key={row._id} hover>
+                          <TableCell>{getDisplayName(row)}</TableCell>
+                          <TableCell>{row.email || 'N/A'}</TableCell>
+                          <TableCell>{row.phone || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={row.isVerified ? 'Verified' : 'Unverified'}
+                              color={row.isVerified ? 'success' : 'default'}
                               size="small"
-                              variant="outlined"
-                              onClick={() => handleOpenDialog('view', row)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={row.eligibilityCount || 0}
+                              color={row.eligibilityCount > 0 ? 'primary' : 'default'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={activeBillsCount}
+                              color={activeBillsCount > 0 ? 'secondary' : 'default'}
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>{formatDate(row.createdAt)}</TableCell>
+                          <TableCell align="right">
+                            <Stack
+                              direction="row"
+                              spacing={1}
+                              justifyContent="flex-end"
+                              flexWrap="wrap"
                             >
-                              View
-                            </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => handleOpenDialog('view', row)}
+                              >
+                                View
+                              </Button>
 
-                            <Tooltip title={billInfoError || billInfoSuccess ? (billInfoSuccess ? 'Uploaded successfully!' : billInfoError) : 'Upload Additional Documents'}>
-                              <Badge variant="dot" color="success" invisible={!billInfoSuccess}>
-                                <Button
-                                  component="label"
-                                  size="small"
-                                  variant="outlined"
-                                  color={billInfoSuccess ? 'success' : billInfoError ? 'error' : 'primary'}
-                                  sx={{ minWidth: 0, px: 1 }}
-                                  aria-label="Upload Additional Documents"
-                                  disabled={isUploadingBillInfo}
-                                >
-                                  {isUploadingBillInfo ? (
-                                    <CircularProgress size={16} />
-                                  ) : (
-                                    <Iconify icon="solar:document-add-bold-duotone" />
-                                  )}
-                                  <input
-                                    hidden
-                                    type="file"
-                                    accept="application/pdf"
-                                    onChange={handleBillFileChange(row._id, 'billInfo')}
+                              <Tooltip
+                                title={
+                                  billInfoError || billInfoSuccess
+                                    ? billInfoSuccess
+                                      ? 'Uploaded successfully!'
+                                      : billInfoError
+                                    : 'Upload Additional Documents'
+                                }
+                              >
+                                <Badge variant="dot" color="success" invisible={!billInfoSuccess}>
+                                  <Button
+                                    component="label"
+                                    size="small"
+                                    variant="outlined"
+                                    color={
+                                      billInfoSuccess
+                                        ? 'success'
+                                        : billInfoError
+                                          ? 'error'
+                                          : 'primary'
+                                    }
+                                    sx={{ minWidth: 0, px: 1 }}
+                                    aria-label="Upload Additional Documents"
                                     disabled={isUploadingBillInfo}
-                                  />
-                                </Button>
-                              </Badge>
-                            </Tooltip>
+                                  >
+                                    {isUploadingBillInfo ? (
+                                      <CircularProgress size={16} />
+                                    ) : (
+                                      <Iconify icon="solar:document-add-bold-duotone" />
+                                    )}
+                                    <input
+                                      hidden
+                                      type="file"
+                                      accept="application/pdf"
+                                      onChange={handleBillFileChange(row._id, 'billInfo')}
+                                      disabled={isUploadingBillInfo}
+                                    />
+                                  </Button>
+                                </Badge>
+                              </Tooltip>
 
-                            <Tooltip title={billUploadError || billUploadSuccess ? (billUploadSuccess ? 'Uploaded successfully!' : billUploadError) : 'Upload Application'}>
-                              <Badge variant="dot" color="success" invisible={!billUploadSuccess}>
-                                <Button
-                                  component="label"
-                                  size="small"
-                                  variant="outlined"
-                                  color={billUploadSuccess ? 'success' : billUploadError ? 'error' : 'secondary'}
-                                  sx={{ minWidth: 0, px: 1 }}
-                                  aria-label="Upload Application"
-                                  disabled={isUploadingBillUpload}
-                                >
-                                  {isUploadingBillUpload ? (
-                                    <CircularProgress size={16} />
-                                  ) : (
-                                    <Iconify icon="solar:upload-bold-duotone" />
-                                  )}
-                                  <input
-                                    hidden
-                                    type="file"
-                                    accept="application/pdf"
-                                    onChange={handleBillFileChange(row._id, 'billUpload')}
+                              <Tooltip
+                                title={
+                                  billUploadError || billUploadSuccess
+                                    ? billUploadSuccess
+                                      ? 'Uploaded successfully!'
+                                      : billUploadError
+                                    : 'Upload Application'
+                                }
+                              >
+                                <Badge variant="dot" color="success" invisible={!billUploadSuccess}>
+                                  <Button
+                                    component="label"
+                                    size="small"
+                                    variant="outlined"
+                                    color={
+                                      billUploadSuccess
+                                        ? 'success'
+                                        : billUploadError
+                                          ? 'error'
+                                          : 'secondary'
+                                    }
+                                    sx={{ minWidth: 0, px: 1 }}
+                                    aria-label="Upload Application"
                                     disabled={isUploadingBillUpload}
-                                  />
-                                </Button>
-                              </Badge>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    );
+                                  >
+                                    {isUploadingBillUpload ? (
+                                      <CircularProgress size={16} />
+                                    ) : (
+                                      <Iconify icon="solar:upload-bold-duotone" />
+                                    )}
+                                    <input
+                                      hidden
+                                      type="file"
+                                      accept="application/pdf"
+                                      onChange={handleBillFileChange(row._id, 'billUpload')}
+                                      disabled={isUploadingBillUpload}
+                                    />
+                                  </Button>
+                                </Badge>
+                              </Tooltip>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      );
                     })
                   )}
                 </TableBody>
@@ -690,12 +734,7 @@ export function PageOneView() {
         </MenuItem>
       </Menu>
 
-      <Dialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        fullWidth
-        maxWidth="md"
-      >
+      <Dialog open={openDialog} onClose={handleCloseDialog} fullWidth maxWidth="md">
         <DialogTitle>View User</DialogTitle>
 
         <DialogContent dividers>
@@ -790,7 +829,9 @@ export function PageOneView() {
                           <Typography variant="caption" color="text.secondary">
                             Hospital
                           </Typography>
-                          <Typography variant="body2">{eligibility.hospitalName || 'N/A'}</Typography>
+                          <Typography variant="body2">
+                            {eligibility.hospitalName || 'N/A'}
+                          </Typography>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="text.secondary">
@@ -812,7 +853,9 @@ export function PageOneView() {
                           <Typography variant="caption" color="text.secondary">
                             Household Size
                           </Typography>
-                          <Typography variant="body2">{eligibility.householdSize || 'N/A'}</Typography>
+                          <Typography variant="body2">
+                            {eligibility.householdSize || 'N/A'}
+                          </Typography>
                         </Box>
                         {eligibility.billAmount && (
                           <Box>
@@ -872,7 +915,13 @@ export function PageOneView() {
                 {billsData.map((bill, index) => (
                   <Accordion key={bill._id || index}>
                     <AccordionSummary expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" />}>
-                      <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }} flexWrap="wrap">
+                      <Stack
+                        direction="row"
+                        spacing={2}
+                        alignItems="center"
+                        sx={{ width: '100%' }}
+                        flexWrap="wrap"
+                      >
                         <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 120 }}>
                           {bill.patientName || 'Unknown Patient'}
                         </Typography>
@@ -894,10 +943,10 @@ export function PageOneView() {
                             bill.status === 'approved'
                               ? 'success'
                               : bill.status === 'rejected'
-                              ? 'error'
-                              : bill.status === 'submitted' || bill.status === 'processing'
-                              ? 'info'
-                              : 'default'
+                                ? 'error'
+                                : bill.status === 'submitted' || bill.status === 'processing'
+                                  ? 'info'
+                                  : 'default'
                           }
                           size="small"
                           variant="outlined"
@@ -961,7 +1010,9 @@ export function PageOneView() {
                             Submitted At
                           </Typography>
                           <Typography variant="body2">
-                            {bill.submittedAt ? formatDate(bill.submittedAt) : formatDate(bill.createdAt)}
+                            {bill.submittedAt
+                              ? formatDate(bill.submittedAt)
+                              : formatDate(bill.createdAt)}
                           </Typography>
                         </Box>
                         {(bill.pdfUrl || bill.pdfKey) && (
@@ -1000,17 +1051,34 @@ export function PageOneView() {
                         )}
                         {bill.supportingDocuments && bill.supportingDocuments.length > 0 && (
                           <Box sx={{ gridColumn: '1 / -1' }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ display: 'block', mb: 1 }}
+                            >
                               Supporting Documents ({bill.supportingDocuments.length})
                             </Typography>
                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                               {bill.supportingDocuments.map((doc, docIndex) => {
                                 const typeLabel = doc.documentType
-                                  ? (DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType)
+                                  ? DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType
                                   : null;
                                 return (
-                                  <Box key={docIndex} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.25 }}>
-                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                                  <Box
+                                    key={docIndex}
+                                    sx={{
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      alignItems: 'flex-start',
+                                      gap: 0.25,
+                                    }}
+                                  >
+                                    <Stack
+                                      direction="row"
+                                      spacing={1}
+                                      alignItems="center"
+                                      flexWrap="wrap"
+                                    >
                                       {doc.pdfKey && (
                                         <Button
                                           size="small"
@@ -1031,7 +1099,9 @@ export function PageOneView() {
                                           href={doc.pdfUrl}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          startIcon={<Iconify icon="solar:download-minimalistic-bold" />}
+                                          startIcon={
+                                            <Iconify icon="solar:download-minimalistic-bold" />
+                                          }
                                         >
                                           Download
                                         </Button>
@@ -1118,14 +1188,21 @@ export function PageOneView() {
                       </Button>
                     </Stack>
                     {previewLoading ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 440 }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minHeight: 440,
+                        }}
+                      >
                         <CircularProgress />
                       </Box>
                     ) : previewBlobUrl ? (
                       <Box
                         component="iframe"
                         src={previewBlobUrl}
-                          title={documentTabs[docViewTab]?.title || 'Document'}
+                        title={documentTabs[docViewTab]?.title || 'Document'}
                         sx={{
                           flex: 1,
                           width: '100%',
@@ -1153,5 +1230,3 @@ export function PageOneView() {
     </DashboardContent>
   );
 }
-
-

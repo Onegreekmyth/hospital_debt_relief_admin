@@ -282,12 +282,9 @@ export function ApplicationFormView() {
           canvas.add(text);
           canvas.setActiveObject(text);
           canvas.renderAll();
-          // Enter editing after fabric finishes its mousedown processing
-          setTimeout(() => {
-            text.enterEditing();
-            text.selectAll();
-            canvas.renderAll();
-          }, 100);
+          // Switch to select so user can move/resize immediately.
+          // Double-click enters editing mode.
+          setActiveTool('select');
         }
       };
       canvas.on('mouse:down', handler);
