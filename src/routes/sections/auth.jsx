@@ -47,7 +47,9 @@ const authJwt = {
     {
       path: 'change-password',
       element: (
-        <AuthSplitLayout section={{ title: 'Change Password', titleSx: { mt: 2 }, hideMethods: true }}>
+        <AuthSplitLayout
+          section={{ title: 'Change Password', titleSx: { mt: 2 }, hideMethods: true }}
+        >
           <Jwt.ChangePasswordPage />
         </AuthSplitLayout>
       ),

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 /* eslint-disable import/no-unresolved */
 import {
@@ -83,7 +84,7 @@ const DEFAULT_STATS = {
 
 const PALETTE_KEYS_WITH_MAIN = ['primary', 'secondary', 'success', 'warning', 'error', 'info'];
 
-function StatCard({ title, value, icon, color = 'primary' }) {
+function StatCard({ title, value, icon, color = 'primary', onClick }) {
   const isRevenue = title.toLowerCase().includes('revenue');
   const displayValue =
     isRevenue && typeof value === 'number'
@@ -101,7 +102,14 @@ function StatCard({ title, value, icon, color = 'primary' }) {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'box-shadow 0.2s',
+        boxShadow: onClick ? 4 : undefined,
+        '&:hover': onClick ? { boxShadow: 8, bgcolor: 'action.hover' } : {},
       }}
+      onClick={onClick}
+      tabIndex={onClick ? 0 : undefined}
+      role={onClick ? 'button' : undefined}
     >
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Typography variant="subtitle2" color="text.secondary">
@@ -139,6 +147,48 @@ function StatCard({ title, value, icon, color = 'primary' }) {
 // ----------------------------------------------------------------------
 
 export function OverviewView() {
+  const navigate = useNavigate();
+
+  // Navigation handlers for each tile
+  const handleTileClick = (type) => {
+    switch (type) {
+      case 'Active subscriptions':
+        navigate('/dashboard/subscriptions?status=active');
+        break;
+      case 'Cancelled subscriptions':
+        navigate('/dashboard/subscriptions?status=cancelled');
+        break;
+      case 'Total users':
+        navigate('/dashboard/users');
+        break;
+      case 'Total bills':
+        navigate('/dashboard/bill-approval');
+        break;
+      case 'Pending bills':
+        navigate('/dashboard/bill-approval?status=pending');
+        break;
+      case 'Approved bills':
+        navigate('/dashboard/bill-approval?status=approved');
+        break;
+      case 'Incomplete bills':
+        navigate('/dashboard/bill-approval?status=incomplete');
+        break;
+      case 'Refund requests':
+        navigate('/dashboard/refund-requests');
+        break;
+      case 'Flat-fee bills paid':
+        navigate('/dashboard/bill-approval?type=flat-fee');
+        break;
+      case 'New users (30 days)':
+        navigate('/dashboard/users?recent=30');
+        break;
+      case 'Eligibility checks':
+        navigate('/dashboard/eligibility');
+        break;
+      default:
+        break;
+    }
+  };
   const theme = useTheme();
   const [stats, setStats] = useState(DEFAULT_STATS);
   const [loading, setLoading] = useState(true);
@@ -230,6 +280,7 @@ export function OverviewView() {
                 value={stats.activeSubscriptions}
                 icon="solar:users-group-rounded-bold-duotone"
                 color="success"
+                onClick={() => handleTileClick('Active subscriptions')}
               />
             )}
           </Grid>
@@ -242,6 +293,7 @@ export function OverviewView() {
                 value={stats.cancelledSubscriptions}
                 icon="solar:user-minus-rounded-bold-duotone"
                 color="error"
+                onClick={() => handleTileClick('Cancelled subscriptions')}
               />
             )}
           </Grid>
@@ -254,6 +306,7 @@ export function OverviewView() {
                 value={stats.totalRevenue}
                 icon="solar:wallet-money-bold-duotone"
                 color="info"
+                // No navigation for revenue
               />
             )}
           </Grid>
@@ -266,6 +319,7 @@ export function OverviewView() {
                 value={stats.totalUsers}
                 icon="solar:users-group-rounded-bold-duotone"
                 color="primary"
+                onClick={() => handleTileClick('Total users')}
               />
             )}
           </Grid>
@@ -278,6 +332,7 @@ export function OverviewView() {
                 value={stats.totalBills}
                 icon="solar:document-text-bold-duotone"
                 color="secondary"
+                onClick={() => handleTileClick('Total bills')}
               />
             )}
           </Grid>
@@ -290,6 +345,7 @@ export function OverviewView() {
                 value={stats.pendingBills}
                 icon="solar:clock-circle-bold-duotone"
                 color="warning"
+                onClick={() => handleTileClick('Pending bills')}
               />
             )}
           </Grid>
@@ -302,6 +358,7 @@ export function OverviewView() {
                 value={stats.approvedBills}
                 icon="solar:check-circle-bold-duotone"
                 color="success"
+                onClick={() => handleTileClick('Approved bills')}
               />
             )}
           </Grid>
@@ -314,6 +371,7 @@ export function OverviewView() {
                 value={stats.incompleteBills}
                 icon="solar:document-text-bold-duotone"
                 color="default"
+                onClick={() => handleTileClick('Incomplete bills')}
               />
             )}
           </Grid>
@@ -326,6 +384,7 @@ export function OverviewView() {
                 value={stats.refundRequestCount}
                 icon="solar:refresh-bold-duotone"
                 color="warning"
+                onClick={() => handleTileClick('Refund requests')}
               />
             )}
           </Grid>
@@ -338,6 +397,7 @@ export function OverviewView() {
                 value={stats.flatFeePaidBills}
                 icon="solar:card-bold-duotone"
                 color="info"
+                onClick={() => handleTileClick('Flat-fee bills paid')}
               />
             )}
           </Grid>
@@ -350,6 +410,7 @@ export function OverviewView() {
                 value={stats.newUsersLast30Days}
                 icon="solar:user-plus-rounded-bold-duotone"
                 color="success"
+                onClick={() => handleTileClick('New users (30 days)')}
               />
             )}
           </Grid>
@@ -362,6 +423,7 @@ export function OverviewView() {
                 value={stats.eligibilityRequestsCount}
                 icon="solar:chart-bold-duotone"
                 color="primary"
+                onClick={() => handleTileClick('Eligibility checks')}
               />
             )}
           </Grid>

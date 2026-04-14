@@ -36,27 +36,29 @@ export default function ChangePasswordForm() {
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
-      <Typography variant="h6" mb={2}>Change Password</Typography>
+      <Typography variant="h6" mb={2}>
+        Change Password
+      </Typography>
       <Stack spacing={2}>
         <TextField
           label="Current Password"
           type="password"
           value={oldPassword}
-          onChange={e => setOldPassword(e.target.value)}
+          onChange={(e) => setOldPassword(e.target.value)}
           required
         />
         <TextField
           label="New Password"
           type="password"
           value={newPassword}
-          onChange={e => setNewPassword(e.target.value)}
+          onChange={(e) => setNewPassword(e.target.value)}
           required
         />
         <TextField
           label="Confirm New Password"
           type="password"
           value={confirmPassword}
-          onChange={e => setConfirmPassword(e.target.value)}
+          onChange={(e) => setConfirmPassword(e.target.value)}
           required
         />
         {error && <Typography color="error">{error}</Typography>}

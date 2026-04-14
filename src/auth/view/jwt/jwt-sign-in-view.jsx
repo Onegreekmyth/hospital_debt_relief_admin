@@ -76,7 +76,12 @@ export function JwtSignInView() {
 
   const renderForm = (
     <Box gap={3} display="flex" flexDirection="column">
-      <Field.Text name="email" label="Email address" placeholder="Enter your email" InputLabelProps={{ shrink: true }} />
+      <Field.Text
+        name="email"
+        label="Email address"
+        placeholder="Enter your email"
+        InputLabelProps={{ shrink: true }}
+      />
 
       <Box gap={1.5} display="flex" flexDirection="column">
         {/* Temporarily hide forgot password link */}
