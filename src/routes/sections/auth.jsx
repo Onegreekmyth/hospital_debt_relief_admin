@@ -15,6 +15,7 @@ import { GuestGuard } from 'src/auth/guard';
 const Jwt = {
   SignInPage: lazy(() => import('src/pages/auth/jwt/sign-in')),
   SignUpPage: lazy(() => import('src/pages/auth/jwt/sign-up')),
+  ChangePasswordPage: lazy(() => import('src/pages/auth/jwt/change-password')),
 };
 
 const authJwt = {
@@ -43,6 +44,14 @@ const authJwt = {
     //     </GuestGuard>
     //   ),
     // },
+    {
+      path: 'change-password',
+      element: (
+        <AuthSplitLayout section={{ title: 'Change Password', titleSx: { mt: 2 }, hideMethods: true }}>
+          <Jwt.ChangePasswordPage />
+        </AuthSplitLayout>
+      ),
+    },
   ],
 };
 

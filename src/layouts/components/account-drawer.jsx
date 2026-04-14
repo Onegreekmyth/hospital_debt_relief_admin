@@ -104,35 +104,19 @@ export function AccountDrawer({ data = [], sx, ...other }) {
             }}
           >
             <MenuItem
+              component="a"
+              href="/auth/jwt/change-password"
               onClick={handleCloseDrawer}
               sx={{
                 py: 1,
                 color: 'text.secondary',
                 '& svg': { width: 24, height: 24 },
                 '&:hover': { color: 'text.primary' },
-              }}
-            >
-              <Iconify icon="solar:user-bold-duotone" />
-
-              <Box component="span" sx={{ ml: 2 }}>
-                Profile
-              </Box>
-            </MenuItem>
-
-            <MenuItem
-              onClick={handleCloseDrawer}
-              sx={{
-                py: 1,
-                color: 'text.secondary',
-                '& svg': { width: 24, height: 24 },
-                '&:hover': { color: 'text.primary' },
-                mt: 0.5,
               }}
             >
               <Iconify icon="solar:settings-bold-duotone" />
-
               <Box component="span" sx={{ ml: 2 }}>
-                Account settings
+                Change Password
               </Box>
             </MenuItem>
           </Stack>
