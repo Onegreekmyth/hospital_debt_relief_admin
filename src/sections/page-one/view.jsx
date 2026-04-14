@@ -526,7 +526,7 @@ export function PageOneView() {
                               View
                             </Button>
 
-                            <Tooltip title={billInfoError || billInfoSuccess ? (billInfoSuccess ? 'Uploaded successfully!' : billInfoError) : 'Add Bill Information'}>
+                            <Tooltip title={billInfoError || billInfoSuccess ? (billInfoSuccess ? 'Uploaded successfully!' : billInfoError) : 'Upload Additional Documents'}>
                               <Badge variant="dot" color="success" invisible={!billInfoSuccess}>
                                 <Button
                                   component="label"
@@ -534,7 +534,7 @@ export function PageOneView() {
                                   variant="outlined"
                                   color={billInfoSuccess ? 'success' : billInfoError ? 'error' : 'primary'}
                                   sx={{ minWidth: 0, px: 1 }}
-                                  aria-label="Add Bill Information"
+                                  aria-label="Upload Additional Documents"
                                   disabled={isUploadingBillInfo}
                                 >
                                   {isUploadingBillInfo ? (
@@ -553,7 +553,7 @@ export function PageOneView() {
                               </Badge>
                             </Tooltip>
 
-                            <Tooltip title={billUploadError || billUploadSuccess ? (billUploadSuccess ? 'Uploaded successfully!' : billUploadError) : 'Upload bill'}>
+                            <Tooltip title={billUploadError || billUploadSuccess ? (billUploadSuccess ? 'Uploaded successfully!' : billUploadError) : 'Upload Application'}>
                               <Badge variant="dot" color="success" invisible={!billUploadSuccess}>
                                 <Button
                                   component="label"
@@ -561,7 +561,7 @@ export function PageOneView() {
                                   variant="outlined"
                                   color={billUploadSuccess ? 'success' : billUploadError ? 'error' : 'secondary'}
                                   sx={{ minWidth: 0, px: 1 }}
-                                  aria-label="Upload bill"
+                                  aria-label="Upload Application"
                                   disabled={isUploadingBillUpload}
                                 >
                                   {isUploadingBillUpload ? (

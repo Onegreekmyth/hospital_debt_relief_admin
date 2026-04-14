@@ -62,7 +62,12 @@ function getBillCounts(users) {
       else if (status === 'inactive') incomplete += 1;
     });
   });
-  return { totalBills: total, pendingBills: pending, approvedBills: approved, incompleteBills: incomplete };
+  return {
+    totalBills: total,
+    pendingBills: pending,
+    approvedBills: approved,
+    incompleteBills: incomplete,
+  };
 }
 
 // ----------------------------------------------------------------------
@@ -490,11 +495,7 @@ export function OverviewView() {
                   No eligibility calculations yet.
                 </Typography>
               ) : (
-                <DonutChartBasic
-                  data={charts.eligibilityByType}
-                  valueKey="count"
-                  labelKey="type"
-                />
+                <DonutChartBasic data={charts.eligibilityByType} valueKey="count" labelKey="type" />
               )}
             </Card>
           </Grid>
