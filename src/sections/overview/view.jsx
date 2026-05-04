@@ -167,28 +167,28 @@ export function OverviewView() {
         navigate('/dashboard/users');
         break;
       case 'Total bills':
-        navigate('/dashboard/bill-approval');
+        navigate('/dashboard/two');
         break;
       case 'Pending bills':
-        navigate('/dashboard/bill-approval?status=pending');
+        navigate('/dashboard/two?status=pending');
         break;
       case 'Approved bills':
-        navigate('/dashboard/bill-approval?status=approved');
+        navigate('/dashboard/two?status=approved');
         break;
       case 'Incomplete bills':
-        navigate('/dashboard/bill-approval?status=incomplete');
+        navigate('/dashboard/two?status=inactive');
         break;
       case 'Refund requests':
         navigate('/dashboard/refund-requests');
         break;
       case 'Flat-fee bills paid':
-        navigate('/dashboard/bill-approval?type=flat-fee');
+        navigate('/dashboard/two?type=flat-fee');
         break;
       case 'New users (30 days)':
         navigate('/dashboard/users?recent=30');
         break;
       case 'Eligibility checks':
-        navigate('/dashboard/eligibility');
+        navigate('/dashboard/users');
         break;
       default:
         break;

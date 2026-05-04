@@ -27,7 +27,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
@@ -175,6 +175,7 @@ function getHeaderSortDirection(sortBy, column) {
 
 export function PageTwoView() {
   const nav = useNavigate();
+  const location = useLocation();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -260,11 +261,37 @@ export function PageTwoView() {
     return tabs;
   }, [documentsBill]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const status = (params.get('status') || '').toLowerCase();
+    const type = (params.get('type') || '').toLowerCase();
+
+    const normalizedStatus = status === 'incomplete' ? 'inactive' : status;
+    const validStatuses = new Set(STATUS_FILTER_OPTIONS.map((opt) => opt.value));
+
+    if (validStatuses.has(normalizedStatus)) {
+      setStatusFilter(normalizedStatus);
+    } else {
+      setStatusFilter('all');
+    }
+
+    // Flat-fee filter from dashboard tile shortcut
+    if (type === 'flat-fee') {
+      setSearchQuery(''); // keep search neutral when deep-linking from dashboard cards
+    }
+    setPage(0);
+  }, [location.search]);
+
   const filteredBills = useMemo(() => {
     let list = bills.filter((bill) => matchesBillSearch(bill, searchQuery));
+    const params = new URLSearchParams(location.search);
+    const type = (params.get('type') || '').toLowerCase();
+    if (type === 'flat-fee') {
+      list = list.filter((bill) => bill.flatFeePaid === true);
+    }
     list = list.filter((bill) => filterByStatus(bill, statusFilter));
     return sortBills(list, sortBy);
-  }, [bills, searchQuery, statusFilter, sortBy]);
+  }, [bills, searchQuery, statusFilter, sortBy, location.search]);
 
   const paginatedBills = useMemo(
     () =>
