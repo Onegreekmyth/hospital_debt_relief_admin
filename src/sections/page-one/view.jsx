@@ -105,6 +105,15 @@ export function PageOneView() {
         downloadLabel: 'Download bill PDF',
       },
     ];
+    if (documentsBill.hipaaForm) {
+      tabs.push({
+        label: 'HIPAA Form',
+        key: documentsBill.hipaaForm.pdfKey,
+        url: documentsBill.hipaaForm.pdfUrl,
+        title: 'HIPAA Form',
+        downloadLabel: 'Download HIPAA form',
+      });
+    }
     if (documentsBill.electronicConsentForm) {
       tabs.push({
         label: 'Electronic Consent Form',
